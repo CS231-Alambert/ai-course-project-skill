@@ -1,0 +1,7 @@
+__pycache__/
+*.pyc
+paper-output/
+paper-context/
+templates/
+.vscode/
+.idea/
