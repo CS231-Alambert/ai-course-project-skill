@@ -36,6 +36,79 @@
   </div>
 </header>
 
+<!-- Requirements Banner -->
+<div class="req-banner" id="reqBanner">
+  <div class="req-banner-inner">
+    <div class="req-banner-left">
+      <span class="req-icon">📋</span>
+      <span class="req-label">格式配置</span>
+      <span class="req-badge" id="reqStatus" data-status="empty">未配置</span>
+    </div>
+    <div class="req-banner-center" id="reqSummary">
+      <span class="req-spec">正文：<em>宋体 12pt 1.5倍行距</em></span>
+      <span class="req-spec">标题：<em>宋体 16pt 加粗</em></span>
+      <span class="req-spec">页边距：<em>上下2.54 左右3.17cm</em></span>
+    </div>
+    <div class="req-banner-right">
+      <label class="btn-tool file-label req-upload-btn">
+        📤 上传课程要求
+        <input type="file" id="reqFileInput" accept=".md,.txt,.docx,.pdf" hidden>
+      </label>
+      <button class="btn-tool" id="reqResetBtn" title="恢复默认格式">↺ 默认</button>
+      <button class="btn-tool" id="reqToggleBtn" title="展开/收起详情">⚙ 详情</button>
+    </div>
+  </div>
+  <!-- Expanded detail panel -->
+  <div class="req-detail" id="reqDetail" style="display:none">
+    <div class="req-detail-grid">
+      <div class="req-field">
+        <label>正文字体 <span class="field-tag tag-auto">自动</span></label>
+        <input type="text" id="cfgBodyFont" value="宋体" data-default="宋体">
+        <span class="field-hint">中文字体名称</span>
+      </div>
+      <div class="req-field">
+        <label>正文字号 (pt) <span class="field-tag tag-auto">自动</span></label>
+        <input type="number" id="cfgBodySize" value="12" min="8" max="24" data-default="12">
+        <span class="field-hint">小四 = 12pt</span>
+      </div>
+      <div class="req-field">
+        <label>行距倍数 <span class="field-tag tag-auto">自动</span></label>
+        <input type="number" id="cfgLineSpacing" value="1.5" min="1" max="3" step="0.25" data-default="1.5">
+        <span class="field-hint">1.5 倍行距</span>
+      </div>
+      <div class="req-field">
+        <label>标题字体 <span class="field-tag tag-auto">自动</span></label>
+        <input type="text" id="cfgHeadingFont" value="宋体" data-default="宋体">
+      </div>
+      <div class="req-field">
+        <label>一级标题 (pt) <span class="field-tag tag-auto">自动</span></label>
+        <input type="number" id="cfgH1Size" value="16" min="10" max="24" data-default="16">
+        <span class="field-hint">三号 = 16pt</span>
+      </div>
+      <div class="req-field">
+        <label>首行缩进 (pt) <span class="field-tag tag-auto">自动</span></label>
+        <input type="number" id="cfgIndent" value="24" min="0" max="48" data-default="24">
+        <span class="field-hint">2字符 ≈ 24pt</span>
+      </div>
+      <div class="req-field">
+        <label>上下边距 (cm) <span class="field-tag tag-auto">自动</span></label>
+        <input type="number" id="cfgMarginV" value="2.54" min="1" max="5" step="0.1" data-default="2.54">
+      </div>
+      <div class="req-field">
+        <label>左右边距 (cm) <span class="field-tag tag-auto">自动</span></label>
+        <input type="number" id="cfgMarginH" value="3.17" min="1" max="5" step="0.1" data-default="3.17">
+      </div>
+    </div>
+    <div class="req-detail-footer">
+      <div class="req-word-info" id="reqWordInfo">
+        <span>📝 字数要求：<strong id="reqWordRange">未检测</strong></span>
+        <span>📑 章节要求：<strong id="reqChapterInfo">未检测</strong></span>
+      </div>
+      <button class="btn-generate btn-sm" id="reqApplyBtn">✅ 应用格式配置</button>
+    </div>
+  </div>
+</div>
+
 <main class="app">
   <div class="app-left" id="leftPanel">
     <!-- Tab bar -->
@@ -87,29 +160,28 @@
         <span class="panel-desc">DeepSeek-v4 API</span>
       </div>
       <div class="form-area">
-        <div class="form-group">
-          <label>🔑 DeepSeek API Key</label>
+        <div class="form-group" data-field="aiApiKey">
+          <label>🔑 DeepSeek API Key <span class="field-tag tag-required">必填</span></label>
           <div style="display:flex;gap:var(--s2)">
-            <input type="password" id="aiApiKey" placeholder="sk-..." style="flex:1">
+            <input type="password" id="aiApiKey" placeholder="sk-..." style="flex:1" data-required="true">
             <button class="btn-tool" id="aiSaveKey" style="white-space:nowrap">💾 保存</button>
           </div>
-          <p class="form-hint" style="margin-top:4px">密钥仅保存在浏览器本地，不会上传到任何服务器。从 <a href="https://platform.deepseek.com/api_keys" target="_blank" style="color:var(--accent)">platform.deepseek.com</a> 获取。</p>
+          <p class="form-hint" style="margin-top:4px">密钥仅保存在浏览器本地。从 <a href="https://platform.deepseek.com/api_keys" target="_blank" style="color:var(--accent)">platform.deepseek.com</a> 获取。</p>
         </div>
-        <div class="form-group">
-          <label>📝 项目描述</label>
-          <textarea id="aiProjectDesc" rows="3" placeholder="简要描述你的项目：做什么、用了什么技术、有什么特点。例如：
-本项目实现了一个基于 ResNet-50 的图像分类系统，使用 PyTorch 框架，在 CIFAR-10 数据集上训练，采用数据增强和迁移学习策略，最终达到 94.2% 的测试准确率。"></textarea>
+        <div class="form-group" data-field="aiProjectDesc">
+          <label>📝 项目描述 <span class="field-tag tag-required">必填</span></label>
+          <textarea id="aiProjectDesc" rows="3" placeholder="简要描述你的项目：做什么、用了什么技术、有什么特点。
+本项目实现了一个基于 ResNet-50 的图像分类系统，使用 PyTorch 框架，在 CIFAR-10 数据集上训练，采用数据增强和迁移学习策略，最终达到 94.2% 的测试准确率。" data-required="true"></textarea>
         </div>
-        <div class="form-group">
-          <label>🔧 技术栈 & 实验配置</label>
+        <div class="form-group" data-field="aiTechDetail">
+          <label>🔧 技术栈 & 实验配置 <span class="field-tag tag-optional">建议填写</span></label>
           <textarea id="aiTechDetail" rows="3" placeholder="Python 3.10, PyTorch 2.0, ResNet-50
 训练集 50000 张，测试集 10000 张
 优化器：Adam, lr=0.001, batch_size=64
-GPU: NVIDIA RTX 3060
-训练 100 epochs，约 3 小时"></textarea>
+GPU: NVIDIA RTX 3060"></textarea>
         </div>
-        <div class="form-group">
-          <label>📊 实验结果（可选）</label>
+        <div class="form-group" data-field="aiResults">
+          <label>📊 实验结果 <span class="field-tag tag-optional">建议填写</span></label>
           <textarea id="aiResults" rows="2" placeholder="准确率 94.2%, F1 0.938, 推理时间 12ms/张
 消融实验：无数据增强 89.1%, 无迁移学习 91.5%"></textarea>
         </div>
@@ -129,11 +201,11 @@ GPU: NVIDIA RTX 3060
     <div class="tab-panel" id="panel-evidence">
       <div class="panel-toolbar"><span class="panel-label">🔍 项目证据提取</span><span class="panel-desc">build_evidence.py</span></div>
       <div class="form-area">
-        <div class="form-group"><label>项目名称</label><input type="text" id="evProjectName" placeholder="例如：图像分类实验项目"></div>
-        <div class="form-group"><label>技术栈</label><textarea id="evTechStack" rows="2" placeholder="Python 3.10, PyTorch 2.0, Transformers, Flask"></textarea></div>
-        <div class="form-group"><label>API 接口 / 入口文件</label><textarea id="evApi" rows="2" placeholder="app.py, src/train.py, predict.py"></textarea></div>
-        <div class="form-group"><label>数据库 / Schema</label><textarea id="evSchema" rows="2" placeholder="data/dataset.csv, models/user.py"></textarea></div>
-        <div class="form-group"><label>测试文件</label><textarea id="evTests" rows="2" placeholder="tests/test_model.py"></textarea></div>
+        <div class="form-group" data-field="evProjectName"><label>项目名称 <span class="field-tag tag-required">必填</span></label><input type="text" id="evProjectName" placeholder="例如：图像分类实验项目" data-required="true"></div>
+        <div class="form-group" data-field="evTechStack"><label>技术栈 <span class="field-tag tag-required">必填</span></label><textarea id="evTechStack" rows="2" placeholder="Python 3.10, PyTorch 2.0, Transformers, Flask" data-required="true"></textarea></div>
+        <div class="form-group" data-field="evApi"><label>API 接口 / 入口文件 <span class="field-tag tag-optional">建议填写</span></label><textarea id="evApi" rows="2" placeholder="app.py, src/train.py, predict.py"></textarea></div>
+        <div class="form-group" data-field="evSchema"><label>数据库 / Schema <span class="field-tag tag-optional">建议填写</span></label><textarea id="evSchema" rows="2" placeholder="data/dataset.csv, models/user.py"></textarea></div>
+        <div class="form-group" data-field="evTests"><label>测试文件 <span class="field-tag tag-optional">建议填写</span></label><textarea id="evTests" rows="2" placeholder="tests/test_model.py"></textarea></div>
         <button class="btn-generate" id="evBuildBtn">🔍 生成证据报告</button>
         <div id="evOutput" class="form-output"></div>
       </div>

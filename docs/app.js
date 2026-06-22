@@ -76,7 +76,235 @@ function showStatus(msg, type) {
 }
 
 /* ═══════════════════════════════════════════
-   SECTION 1 — AI Generator (DeepSeek API)
+   SECTION 1 — Format Requirements Parser
+   ═══════════════════════════════════════════ */
+
+const FONT_SIZE_MAP = {
+  '初号':42,'小初':36,'一号':26,'小一':24,'二号':22,'小二':18,
+  '三号':16,'小三':15,'四号':14,'小四':12,'五号':10.5,'小五':9,
+  '六号':7.5,'小六':6.5,'七号':5.5,'八号':5,
+};
+const FONT_NAMES = ['宋体','黑体','楷体','仿宋','Times New Roman','Consolas','微软雅黑','华文中宋'];
+
+function parseRequirements(text) {
+  const result = {
+    bodyFont: null, bodySize: null, headingFont: null, h1Size: null,
+    lineSpacing: null, indent: null, marginH: null, marginV: null,
+    wordMin: null, wordMax: null, chapters: [], rawMatches: [],
+  };
+
+  // Font
+  for (const fn of FONT_NAMES) {
+    if (text.includes(fn)) {
+      const near = text.substring(Math.max(0, text.indexOf(fn)-20), text.indexOf(fn)+fn.length+40);
+      if (/正文|正?文|段落/.test(near) && !/标题|题目|章/.test(near)) result.bodyFont = fn;
+      else if (/标题|题目|章|节/.test(near)) result.headingFont = fn;
+      else if (!result.bodyFont) result.bodyFont = fn;
+    }
+  }
+
+  // Font size
+  for (const [name, pt] of Object.entries(FONT_SIZE_MAP)) {
+    const re = new RegExp(`[^a-zA-Z]${name}[^a-zA-Z]|^${name}[^a-zA-Z]`, 'g');
+    for (const m of text.matchAll(re)) {
+      const near = text.substring(Math.max(0, m.index-30), m.index+name.length+30);
+      if (/正文|正?文|段落|内容/.test(near) && !/标题|题目/.test(near)) result.bodySize = pt;
+      else if (/标题|题目|一级|章/.test(near)) result.h1Size = pt;
+    }
+  }
+  // Numeric pt
+  const bodyPt = text.match(/正\s*文\s*[：:]\s*(\d+)\s*pt/i) || text.match(/正文[^。]*(?:小四|五号).*?(\d+)\s*pt/i);
+  if (bodyPt) result.bodySize = parseInt(bodyPt[1]);
+  const h1Pt = text.match(/一级标题[^。]*?(\d+)\s*pt/i) || text.match(/标题[：:]\s*(\d+)\s*pt/i);
+  if (h1Pt) result.h1Size = parseInt(h1Pt[1]);
+
+  // Line spacing
+  const ls = text.match(/(\d+\.?\d*)\s*倍\s*行\s*距/);
+  if (ls) result.lineSpacing = parseFloat(ls[1]);
+  if (text.includes('单倍行距')) result.lineSpacing = 1.0;
+  if (text.includes('双倍行距')) result.lineSpacing = 2.0;
+
+  // Indent
+  const indent = text.match(/首行缩进\s*(\d+)\s*字符/);
+  if (indent) result.indent = parseInt(indent[1]) * 12;
+
+  // Margins
+  const mv = text.match(/上\s*下\s*(\d+\.?\d*)\s*cm/);
+  if (mv) result.marginV = parseFloat(mv[1]);
+  const mh = text.match(/左\s*右\s*(\d+\.?\d*)\s*cm/);
+  if (mh) result.marginH = parseFloat(mh[1]);
+
+  // Word count
+  const wRange = text.match(/不少于\s*(\d+)\s*字/) || text.match(/字数[：:]\s*(\d+)[-~]\s*(\d+)/);
+  if (wRange) {
+    result.wordMin = parseInt(wRange[1]);
+    if (wRange[2]) result.wordMax = parseInt(wRange[2]);
+  }
+
+  // Chapters
+  const chRe = /第[一二三四五六七八\d]+章\s*[^\n，。]*/g;
+  for (const m of text.matchAll(chRe)) {
+    const ch = m[0].trim();
+    if (!result.chapters.includes(ch)) result.chapters.push(ch);
+  }
+
+  // Track raw matches
+  result.rawMatches = [];
+  if (result.bodyFont) result.rawMatches.push(`正文：${result.bodyFont}`);
+  if (result.bodySize) result.rawMatches.push(`${result.bodySize}pt`);
+  if (result.lineSpacing) result.rawMatches.push(`${result.lineSpacing}倍行距`);
+  if (result.indent) result.rawMatches.push(`首行缩进${result.indent}pt`);
+  if (result.marginV) result.rawMatches.push(`上下${result.marginV}cm`);
+  if (result.marginH) result.rawMatches.push(`左右${result.marginH}cm`);
+
+  return result;
+}
+
+function applyParsedRequirements(parsed) {
+  const setVal = (id, val, def) => {
+    const el = document.getElementById(id);
+    if (el && val != null) {
+      el.value = val;
+      if (val !== def) el.classList.add('changed');
+      else el.classList.remove('changed');
+    }
+  };
+  setVal('cfgBodyFont', parsed.bodyFont, '宋体');
+  setVal('cfgBodySize', parsed.bodySize, 12);
+  setVal('cfgLineSpacing', parsed.lineSpacing, 1.5);
+  setVal('cfgHeadingFont', parsed.headingFont, '宋体');
+  setVal('cfgH1Size', parsed.h1Size, 16);
+  setVal('cfgIndent', parsed.indent, 24);
+  setVal('cfgMarginV', parsed.marginV, 2.54);
+  setVal('cfgMarginH', parsed.marginH, 3.17);
+
+  // Update summary
+  const specEls = $$('.req-spec em');
+  if (specEls.length >= 3) {
+    specEls[0].textContent = `${parsed.bodyFont || '宋体'} ${parsed.bodySize || 12}pt ${parsed.lineSpacing || 1.5}倍行距`;
+    specEls[1].textContent = `${parsed.headingFont || '宋体'} ${parsed.h1Size || 16}pt 加粗`;
+    specEls[2].textContent = `上下${parsed.marginV || 2.54} 左右${parsed.marginH || 3.17}cm`;
+  }
+
+  // Word info
+  const wRange = $('#reqWordRange');
+  if (wRange) {
+    if (parsed.wordMin) wRange.textContent = parsed.wordMax ? `${parsed.wordMin}-${parsed.wordMax} 字` : `不少于 ${parsed.wordMin} 字`;
+    else wRange.textContent = '未检测';
+  }
+  const chInfo = $('#reqChapterInfo');
+  if (chInfo) {
+    chInfo.textContent = parsed.chapters.length ? parsed.chapters.join('、') : '未检测';
+  }
+
+  // Update status
+  const badge = $('#reqStatus');
+  if (badge) {
+    badge.dataset.status = 'uploaded';
+    badge.textContent = '已从文件提取';
+  }
+}
+
+function resetToDefaults() {
+  $$('#reqDetail input[type="number"], #reqDetail input[type="text"]').forEach(el => {
+    const def = el.dataset.default;
+    if (def !== undefined) { el.value = def; el.classList.remove('changed'); }
+  });
+  const badge = $('#reqStatus');
+  if (badge) { badge.dataset.status = 'empty'; badge.textContent = '默认配置'; }
+  const wRange = $('#reqWordRange');
+  if (wRange) wRange.textContent = '未检测';
+  const chInfo = $('#reqChapterInfo');
+  if (chInfo) chInfo.textContent = '未检测';
+  const specEls = $$('.req-spec em');
+  if (specEls.length >= 3) {
+    specEls[0].textContent = '宋体 12pt 1.5倍行距';
+    specEls[1].textContent = '宋体 16pt 加粗';
+    specEls[2].textContent = '上下2.54 左右3.17cm';
+  }
+}
+
+async function handleReqFile(file) {
+  const ext = '.' + file.name.split('.').pop().toLowerCase();
+  if (!['.md','.txt','.docx','.pdf'].includes(ext)) {
+    showStatus(`❌ 不支持 ${ext}，请使用 .md / .txt / .docx / .pdf`, 'error');
+    return;
+  }
+
+  let text = '';
+  if (ext === '.docx') {
+    // Try mammoth.js if loaded, otherwise read raw text
+    if (typeof mammoth !== 'undefined') {
+      const result = await mammoth.extractRawText({ arrayBuffer: await file.arrayBuffer() });
+      text = result.value;
+    } else {
+      // Basic: try extracting XML text content (works for simple DOCX)
+      try {
+        const zip = await JSZip.loadAsync(await file.arrayBuffer());
+        const docXml = await zip.file('word/document.xml')?.async('string');
+        if (docXml) text = docXml.replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim();
+      } catch { text = ''; }
+    }
+    if (!text) {
+      showStatus('⚠️ DOCX 解析需要 mammoth.js 库，请使用 .md 或 .txt 格式', 'warn');
+      return;
+    }
+  } else if (ext === '.pdf') {
+    showStatus('⚠️ PDF 解析暂不支持，请粘贴为 .txt 后上传', 'warn');
+    return;
+  } else {
+    text = await file.text();
+  }
+
+  if (text) {
+    const parsed = parseRequirements(text);
+    applyParsedRequirements(parsed);
+    showStatus(`✅ 已从「${file.name}」提取格式要求（${parsed.rawMatches.join('、') || '未检测到具体规格'}）`, 'success');
+  }
+}
+
+/* ═══════════════════════════════════════════
+   SECTION 2 — Field Status Tracking
+   ═══════════════════════════════════════════ */
+
+function updateFieldStatus() {
+  $$('.form-group[data-field]').forEach(group => {
+    const input = group.querySelector('input, textarea');
+    if (!input) return;
+    const val = input.value?.trim() || '';
+    const required = input.dataset.required === 'true';
+    const tag = group.querySelector('.field-tag');
+    if (!tag) return;
+
+    if (val) {
+      tag.className = 'field-tag tag-filled';
+      tag.textContent = '✓ 已填写';
+    } else if (required) {
+      tag.className = 'field-tag tag-required';
+      tag.textContent = '必填';
+    } else {
+      tag.className = 'field-tag tag-optional';
+      tag.textContent = '建议填写';
+    }
+  });
+}
+
+function getFormatConfig() {
+  const get = id => { const el = document.getElementById(id); return el ? el.value : null; };
+  return {
+    bodyFont: get('cfgBodyFont') || '宋体',
+    bodySize: parseInt(get('cfgBodySize')) || 12,
+    lineSpacing: parseFloat(get('cfgLineSpacing')) || 1.5,
+    headingFont: get('cfgHeadingFont') || '宋体',
+    h1Size: parseInt(get('cfgH1Size')) || 16,
+    indent: parseInt(get('cfgIndent')) || 24,
+    marginV: parseFloat(get('cfgMarginV')) || 2.54,
+    marginH: parseFloat(get('cfgMarginH')) || 3.17,
+  };
+}
+
+/* ═══════════════════════════════════════════
+   SECTION 3 — AI Generator (DeepSeek API)
    ═══════════════════════════════════════════ */
 
 const DEEPSEEK_BASE = 'https://api.deepseek.com/v1';
@@ -183,7 +411,7 @@ ${results || '（未提供）'}
 }
 
 /* ═══════════════════════════════════════════
-   SECTION 2 — DOCX Generator (generate_docx.py)
+   SECTION 4 — DOCX Generator (generate_docx.py)
    ═══════════════════════════════════════════ */
 
 const HALF_PT = { title:44, h1:32, h2:28, h3:24, body:24, caption:21, code:18, ref:21, eq:24 };
@@ -324,7 +552,7 @@ async function downloadDocx(md) {
 }
 
 /* ═══════════════════════════════════════════
-   SECTION 3 — Evidence Builder (build_evidence.py)
+   SECTION 5 — Evidence Builder (build_evidence.py)
    ═══════════════════════════════════════════ */
 
 function buildEvidence() {
@@ -358,7 +586,7 @@ function buildEvidence() {
 }
 
 /* ═══════════════════════════════════════════
-   SECTION 4 — Image Manager (build_image_map.py)
+   SECTION 6 — Image Manager (build_image_map.py)
    ═══════════════════════════════════════════ */
 
 let imgStore = [];
@@ -405,7 +633,7 @@ function buildImageMap() {
 }
 
 /* ═══════════════════════════════════════════
-   SECTION 5 — Word Count (count_words.py)
+   SECTION 7 — Word Count (count_words.py)
    ═══════════════════════════════════════════ */
 
 function analyzeWordCount() {
@@ -441,7 +669,7 @@ function analyzeWordCount() {
 }
 
 /* ═══════════════════════════════════════════
-   SECTION 6 — Reference Checker (check_references.py)
+   SECTION 8 — Reference Checker (check_references.py)
    ═══════════════════════════════════════════ */
 
 function checkReferences() {
@@ -488,7 +716,7 @@ function checkReferences() {
 }
 
 /* ═══════════════════════════════════════════
-   SECTION 7 — Checklist Generator (generate_task_checklist.py)
+   SECTION 9 — Checklist Generator (generate_task_checklist.py)
    ═══════════════════════════════════════════ */
 
 async function generateChecklist() {
@@ -599,7 +827,7 @@ function buildChecklistDocx(title, screenshots, refCount) {
 }
 
 /* ═══════════════════════════════════════════
-   SECTION 8 — UI Wiring
+   SECTION 10 — UI Wiring
    ═══════════════════════════════════════════ */
 
 function getEditorValue() { return $('#editor')?.value || ''; }
@@ -777,8 +1005,48 @@ document.addEventListener('DOMContentLoaded', () => {
     document.addEventListener('mouseup', () => { dragging=false; document.body.style.cursor=''; document.body.style.userSelect=''; });
   }
 
+  /* ── Requirements Panel ──────────── */
+  $('#reqToggleBtn')?.addEventListener('click', () => {
+    const detail = $('#reqDetail');
+    if (detail) {
+      const show = detail.style.display === 'none' || !detail.style.display;
+      detail.style.display = show ? 'block' : 'none';
+      $('#reqBanner')?.classList.toggle('expanded', show);
+    }
+  });
+
+  $('#reqResetBtn')?.addEventListener('click', resetToDefaults);
+
+  $('#reqFileInput')?.addEventListener('change', function() {
+    if (this.files?.[0]) handleReqFile(this.files[0]);
+    this.value = '';
+  });
+
+  // Drag-drop requirements file onto banner
+  $('#reqBanner')?.addEventListener('dragover', e => { e.preventDefault(); e.currentTarget.style.opacity = '0.7'; });
+  $('#reqBanner')?.addEventListener('dragleave', e => { e.currentTarget.style.opacity = '1'; });
+  $('#reqBanner')?.addEventListener('drop', e => {
+    e.preventDefault(); e.currentTarget.style.opacity = '1';
+    const f = e.dataTransfer?.files?.[0];
+    if (f) handleReqFile(f);
+  });
+
+  // Apply format config
+  $('#reqApplyBtn')?.addEventListener('click', () => {
+    showStatus('✅ 格式配置已应用（将在下次生成 DOCX 时生效）', 'success');
+    const badge = $('#reqStatus');
+    if (badge) { badge.dataset.status = 'custom'; badge.textContent = '自定义配置'; }
+    updateFieldStatus();
+  });
+
+  // Track field changes
+  $$('.form-group[data-field] input, .form-group[data-field] textarea').forEach(el => {
+    el.addEventListener('input', updateFieldStatus);
+  });
+
   /* ── Init ──────────────────────────── */
   updatePreview();
+  updateFieldStatus();
   const initWc = countWords(getEditorValue());
   const wcEl = $('#wordCount');
   if (wcEl) wcEl.textContent = `${initWc.toLocaleString()} 字`;
