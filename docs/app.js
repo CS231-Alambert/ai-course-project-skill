@@ -1,13 +1,13 @@
 /* ═══════════════════════════════════════════
    AI Course Project Workbench — Web Edition
-   Markdown Editor → Live Preview → DOCX Download
+   Drag & Drop → Markdown Editor → Live Preview → DOCX
    Zero-install, all in browser
    ═══════════════════════════════════════════ */
 
 import { Document, Packer, Paragraph, TextRun,
-         HeadingLevel, Table, TableRow, TableCell,
-         AlignmentType, WidthType, BorderStyle,
-         LineRuleType, PageBreak } from 'docx';
+         Table, TableRow, TableCell,
+         AlignmentType, WidthType,
+         LineRuleType } from 'docx';
 
 /* ── Constants ─────────────────────────── */
 
@@ -15,10 +15,9 @@ const HALF_PT = {
   title: 44,    h1: 32,    h2: 28,    h3: 24,
   body: 24,     caption: 21, code: 18, ref: 21, eq: 24,
 };
-
 const LINE = { single: 240, onehalf: 360 };
-const INDENT_FIRST = 480; // 24pt in twips
-const INDENT_HANGING = 420; // 21pt in twips
+const INDENT_FIRST = 480;
+const INDENT_HANGING = 420;
 
 const TEMPLATES = {
   full: `# 论文标题
@@ -80,8 +79,6 @@ function parseMarkdown(md) {
 
   while (i < lines.length) {
     const s = lines[i].trim();
-
-    // skip empty
     if (!s) { i++; continue; }
 
     // code fence
@@ -93,7 +90,7 @@ function parseMarkdown(md) {
         codeLines.push(lines[i]);
         i++;
       }
-      if (i < lines.length) i++; // closing ```
+      if (i < lines.length) i++;
       blocks.push({ type: 'code', lang, content: codeLines.join('\n') });
       continue;
     }
@@ -106,82 +103,50 @@ function parseMarkdown(md) {
         eqLines.push(lines[i].trim());
         i++;
       }
-      if (i < lines.length) i++; // closing $$
+      if (i < lines.length) i++;
       blocks.push({ type: 'equation', content: eqLines.join('\n') });
       continue;
     }
 
-    // inline formula $$...$$
+    // inline formula
     if (s.startsWith('$$') && s.endsWith('$$') && s.length > 4) {
       blocks.push({ type: 'equation', content: s.slice(2, -2).trim() });
-      i++;
-      continue;
+      i++; continue;
     }
 
     // headings
-    if (s.startsWith('# ')) {
-      blocks.push({ type: 'title', content: cleanText(s.slice(2)) });
-      i++; continue;
-    }
-    if (s.startsWith('## ')) {
-      blocks.push({ type: 'h1', content: cleanText(s.slice(3)) });
-      i++; continue;
-    }
-    if (s.startsWith('### ')) {
-      blocks.push({ type: 'h2', content: cleanText(s.slice(4)) });
-      i++; continue;
-    }
-    if (s.startsWith('#### ')) {
-      blocks.push({ type: 'h3', content: cleanText(s.slice(5)) });
-      i++; continue;
-    }
+    if (s.startsWith('# ')) { blocks.push({ type: 'title', content: cleanText(s.slice(2)) }); i++; continue; }
+    if (s.startsWith('## ')) { blocks.push({ type: 'h1', content: cleanText(s.slice(3)) }); i++; continue; }
+    if (s.startsWith('### ')) { blocks.push({ type: 'h2', content: cleanText(s.slice(4)) }); i++; continue; }
+    if (s.startsWith('#### ')) { blocks.push({ type: 'h3', content: cleanText(s.slice(5)) }); i++; continue; }
 
     // keywords
     const kw = s.match(/^(关键词|Keywords)[:：]\s*(.*)$/);
-    if (kw) {
-      blocks.push({ type: 'keywords', label: kw[1], content: kw[2] });
-      i++; continue;
-    }
+    if (kw) { blocks.push({ type: 'keywords', label: kw[1], content: kw[2] }); i++; continue; }
 
     // figure / table captions
-    if (/^(图|Fig\.?)\s*\d/.test(s)) {
-      blocks.push({ type: 'figureCaption', content: cleanText(s) });
-      i++; continue;
-    }
-    if (/^(表|Table\.?)\s*\d/.test(s)) {
-      blocks.push({ type: 'tableCaption', content: cleanText(s) });
-      i++; continue;
-    }
+    if (/^(图|Fig\.?)\s*\d/.test(s)) { blocks.push({ type: 'figureCaption', content: cleanText(s) }); i++; continue; }
+    if (/^(表|Table\.?)\s*\d/.test(s)) { blocks.push({ type: 'tableCaption', content: cleanText(s) }); i++; continue; }
 
     // GFM table
     if (s.startsWith('|')) {
       const tblLines = [];
-      while (i < lines.length && lines[i].trim().startsWith('|')) {
-        tblLines.push(lines[i].trim());
-        i++;
-      }
+      while (i < lines.length && lines[i].trim().startsWith('|')) { tblLines.push(lines[i].trim()); i++; }
       blocks.push({ type: 'table', content: parseTable(tblLines) });
       continue;
     }
 
     // image
     const imgMd = s.match(/^!\[(.+?)\]\((.+?)\)$/);
-    if (imgMd) {
-      blocks.push({ type: 'image', alt: imgMd[1], src: imgMd[2] });
-      i++; continue;
-    }
+    if (imgMd) { blocks.push({ type: 'image', alt: imgMd[1], src: imgMd[2] }); i++; continue; }
 
-    // reference line
-    if (/^\[\d+\]/.test(s)) {
-      blocks.push({ type: 'reference', content: cleanText(s) });
-      i++; continue;
-    }
+    // reference
+    if (/^\[\d+\]/.test(s)) { blocks.push({ type: 'reference', content: cleanText(s) }); i++; continue; }
 
-    // regular paragraph
+    // paragraph
     blocks.push({ type: 'paragraph', content: cleanText(s) });
     i++;
   }
-
   return blocks;
 }
 
@@ -189,7 +154,6 @@ function parseTable(lines) {
   const rows = [];
   for (const ln of lines) {
     const cells = ln.replace(/^[\s|]+|[\s|]+$/g, '').split('|').map(c => c.trim());
-    // skip separator lines like |---|---|
     if (cells.every(c => /^[:\- ]+$/.test(c))) continue;
     rows.push(cells);
   }
@@ -214,196 +178,138 @@ function cleanText(text) {
 
 /* ── Helpers ───────────────────────────── */
 
-function pStyle({ font = '宋体', size = HALF_PT.body, bold = false,
-                  alignment = AlignmentType.LEFT, lineSpacing = LINE.onehalf,
-                  firstLine = 0, spacingBefore = 0, spacingAfter = 0,
-                  pageBreak = false }) {
+function run(text, { font = '宋体', size = HALF_PT.body, bold = false } = {}) {
+  return new TextRun({ text: String(text), font, size, bold });
+}
+
+function pStyle(opts = {}) {
+  const { font = '宋体', size = HALF_PT.body, bold = false,
+          alignment = AlignmentType.LEFT, lineSpacing = LINE.onehalf,
+          firstLine = 0, before = 0, after = 0, pageBreak = false } = opts;
   return {
     alignment,
-    spacing: {
-      line: lineSpacing,
-      lineRule: LineRuleType.AUTO,
-      before: spacingBefore,
-      after: spacingAfter,
-    },
+    spacing: { line: lineSpacing, lineRule: LineRuleType.AUTO, before, after },
     indent: firstLine ? { firstLine } : undefined,
     ...(pageBreak ? { pageBreakBefore: true } : {}),
   };
 }
 
-function run(text, { font = '宋体', size = HALF_PT.body, bold = false } = {}) {
-  return new TextRun({ text: String(text), font, size, bold });
-}
-
-function addPara(doc, text, styleOpts = {}, runOpts = {}) {
-  const para = new Paragraph({
+function makePara(text, styleOpts = {}, runOpts = {}) {
+  return new Paragraph({
     ...pStyle(styleOpts),
-    children: [run(text, runOpts)],
+    children: [run(text, { font: styleOpts.font || '宋体', size: styleOpts.size || HALF_PT.body, bold: styleOpts.bold || false, ...runOpts })],
   });
-  doc.addSection({ children: [para] });
-}
-
-function addKeywordPara(doc, label, content) {
-  const isCn = label.startsWith('关键词');
-  const para = new Paragraph({
-    spacing: { line: LINE.single, lineRule: LineRuleType.AUTO },
-  });
-  // Label run (bold)
-  const rLabel = new TextRun({
-    text: label + (label.endsWith('：') || label.endsWith(':') ? '' : ' '),
-    font: isCn ? '宋体' : 'Times New Roman',
-    size: isCn ? HALF_PT.body : HALF_PT.body,
-    bold: true,
-  });
-  para.addChildElement(rLabel);
-  // Content run
-  if (content) {
-    const rContent = new TextRun({
-      text: content,
-      font: isCn ? '宋体' : 'Times New Roman',
-      size: isCn ? HALF_PT.body : HALF_PT.body,
-    });
-    para.addChildElement(rContent);
-  }
-  doc.addSection({ children: [para] });
 }
 
 /* ── DOCX Generator ────────────────────── */
 
 function buildDocx(markdown) {
   const blocks = parseMarkdown(markdown);
-
   const children = [];
-
-  function add(p) { children.push(p); }
-  function addPageBreak() {
-    children.push(new Paragraph({
-      children: [new TextRun({ text: '' })],
-      pageBreakBefore: true,
-    }));
-  }
-
   let seenContent = false;
-  let currentSection = '';
-  let isFirstH1 = true;
 
   for (const block of blocks) {
     switch (block.type) {
+
       case 'title':
-        if (seenContent) addPageBreak();
-        add(new Paragraph({
-          ...pStyle({ font: '宋体', size: HALF_PT.title, bold: true,
-                       alignment: AlignmentType.CENTER, lineSpacing: LINE.onehalf,
-                       spacingBefore: 400, spacingAfter: 400 }),
-          children: [run(block.content, { font: 'Times New Roman', size: HALF_PT.title, bold: true })],
+        if (seenContent) {
+          children.push(new Paragraph({
+            ...pStyle(), pageBreakBefore: true,
+            children: [new TextRun({ text: '' })],
+          }));
+        }
+        children.push(makePara(block.content, {
+          font: '宋体', size: HALF_PT.title, bold: true,
+          alignment: AlignmentType.CENTER, lineSpacing: LINE.onehalf,
+          before: 400, after: 400,
         }));
         seenContent = true;
         break;
 
       case 'h1':
-        currentSection = block.content.replace(/\s/g, '');
-        if (seenContent && isFirstH1) {
-          add(new Paragraph({
-            ...pStyle({ font: '宋体', size: HALF_PT.h1, bold: true,
-                         spacingBefore: 240, spacingAfter: 120 }),
-            pageBreakBefore: true,
-            children: [run(block.content, { font: '宋体', size: HALF_PT.h1, bold: true })],
-          }));
-          isFirstH1 = false;
-        } else {
-          add(new Paragraph({
-            ...pStyle({ font: '宋体', size: HALF_PT.h1, bold: true,
-                         spacingBefore: 240, spacingAfter: 120 }),
-            children: [run(block.content, { font: '宋体', size: HALF_PT.h1, bold: true })],
+        if (seenContent && children.length > 2) {
+          children.push(new Paragraph({
+            ...pStyle(), pageBreakBefore: true,
+            children: [new TextRun({ text: '' })],
           }));
         }
+        children.push(makePara(block.content, {
+          font: '宋体', size: HALF_PT.h1, bold: true,
+          before: 240, after: 120,
+        }));
         seenContent = true;
         break;
 
       case 'h2':
-        add(new Paragraph({
-          ...pStyle({ font: '宋体', size: HALF_PT.h2, bold: true,
-                       spacingBefore: 200, spacingAfter: 80 }),
-          children: [run(block.content, { font: '宋体', size: HALF_PT.h2, bold: true })],
+        children.push(makePara(block.content, {
+          font: '宋体', size: HALF_PT.h2, bold: true,
+          before: 200, after: 80,
         }));
         seenContent = true;
         break;
 
       case 'h3':
-        add(new Paragraph({
-          ...pStyle({ font: '宋体', size: HALF_PT.h3, bold: true,
-                       spacingBefore: 160, spacingAfter: 80 }),
-          children: [run(block.content, { font: '宋体', size: HALF_PT.h3, bold: true })],
+        children.push(makePara(block.content, {
+          font: '宋体', size: HALF_PT.h3, bold: true,
+          before: 160, after: 80,
         }));
         seenContent = true;
         break;
 
-      case 'keywords':
-        // Handled by addKeywordPara helper
-        seenContent = true;
-        break;
-
       case 'paragraph':
-        add(new Paragraph({
-          ...pStyle({ font: '宋体', size: HALF_PT.body, lineSpacing: LINE.onehalf,
-                       firstLine: INDENT_FIRST }),
-          children: [run(block.content, { font: '宋体', size: HALF_PT.body })],
+        children.push(makePara(block.content, {
+          font: '宋体', size: HALF_PT.body, lineSpacing: LINE.onehalf,
+          firstLine: INDENT_FIRST,
         }));
         seenContent = true;
         break;
 
       case 'code':
         for (const line of block.content.split('\n')) {
-          add(new Paragraph({
-            ...pStyle({ font: 'Consolas', size: HALF_PT.code, lineSpacing: LINE.single }),
-            children: [run(line || ' ', { font: 'Consolas', size: HALF_PT.code })],
+          children.push(makePara(line || ' ', {
+            font: 'Consolas', size: HALF_PT.code, lineSpacing: LINE.single,
           }));
         }
         seenContent = true;
         break;
 
       case 'equation':
-        add(new Paragraph({
-          ...pStyle({ font: 'Times New Roman', size: HALF_PT.eq,
-                       alignment: AlignmentType.CENTER, lineSpacing: LINE.onehalf }),
-          children: [run(block.content, { font: 'Times New Roman', size: HALF_PT.eq })],
+        children.push(makePara(block.content, {
+          font: 'Times New Roman', size: HALF_PT.eq,
+          alignment: AlignmentType.CENTER, lineSpacing: LINE.onehalf,
         }));
         seenContent = true;
         break;
 
       case 'figureCaption':
       case 'tableCaption':
-        add(new Paragraph({
-          ...pStyle({ font: '宋体', size: HALF_PT.caption,
-                       alignment: AlignmentType.CENTER, lineSpacing: LINE.single }),
-          children: [run(block.content, { font: '宋体', size: HALF_PT.caption })],
+        children.push(makePara(block.content, {
+          font: '宋体', size: HALF_PT.caption,
+          alignment: AlignmentType.CENTER, lineSpacing: LINE.single,
         }));
         seenContent = true;
         break;
 
       case 'table': {
-        const allRows = block.content;
-        if (allRows.length < 2) break;
-        const maxCols = Math.max(...allRows.map(r => r.length));
-        const padRow = (r) => [...r, ...Array(maxCols - r.length).fill('')].slice(0, maxCols);
-
-        const tableRows = allRows.map((rowCells, ri) =>
-          new TableRow({
-            children: padRow(rowCells).map(cell =>
-              new TableCell({
-                children: [new Paragraph({
-                  alignment: AlignmentType.CENTER,
-                  spacing: { line: LINE.single, lineRule: LineRuleType.AUTO },
-                  children: [run(cell, { font: '宋体', size: HALF_PT.caption })],
-                })],
-                width: { size: 100 / maxCols, type: WidthType.PERCENTAGE },
-              })
-            ),
-          })
-        );
-
-        add(new Table({
-          rows: tableRows,
+        const rows = block.content;
+        if (rows.length < 2) break;
+        const maxCols = Math.max(...rows.map(r => r.length));
+        const pad = (r) => [...r, ...Array(maxCols - r.length).fill('')].slice(0, maxCols);
+        children.push(new Table({
+          rows: rows.map(rowCells =>
+            new TableRow({
+              children: pad(rowCells).map(cell =>
+                new TableCell({
+                  children: [new Paragraph({
+                    alignment: AlignmentType.CENTER,
+                    spacing: { line: LINE.single, lineRule: LineRuleType.AUTO },
+                    children: [run(cell, { font: '宋体', size: HALF_PT.caption })],
+                  })],
+                  width: { size: 100 / maxCols, type: WidthType.PERCENTAGE },
+                })
+              ),
+            })
+          ),
           width: { size: 100, type: WidthType.PERCENTAGE },
         }));
         seenContent = true;
@@ -411,82 +317,84 @@ function buildDocx(markdown) {
       }
 
       case 'reference':
-        add(new Paragraph({
-          ...pStyle({ font: '宋体', size: HALF_PT.ref, lineSpacing: LINE.single,
-                       firstLine: -INDENT_HANGING }),
-          indent: { left: INDENT_HANGING },
+        children.push(new Paragraph({
+          alignment: AlignmentType.LEFT,
+          spacing: { line: LINE.single, lineRule: LineRuleType.AUTO },
+          indent: { left: INDENT_HANGING, firstLine: -INDENT_HANGING },
           children: [run(block.content, { font: '宋体', size: HALF_PT.ref })],
         }));
         seenContent = true;
         break;
 
       case 'image':
-        add(new Paragraph({
-          alignment: AlignmentType.CENTER,
-          spacing: { line: LINE.single, lineRule: LineRuleType.AUTO },
-          children: [run(`[图片：${block.alt}]`, { font: '楷体', size: HALF_PT.caption })],
+        children.push(makePara(`[图片：${block.alt}]`, {
+          font: '楷体', size: HALF_PT.caption,
+          alignment: AlignmentType.CENTER, lineSpacing: LINE.single,
         }));
         seenContent = true;
         break;
 
-      default:
+      case 'keywords': {
+        const isCn = block.label.startsWith('关键词');
+        const p = new Paragraph({
+          spacing: { line: LINE.single, lineRule: LineRuleType.AUTO },
+        });
+        p.addChildElement(run(block.label, { font: isCn ? '宋体' : 'Times New Roman', size: HALF_PT.body, bold: true }));
+        if (block.content) {
+          p.addChildElement(run(block.content, { font: isCn ? '宋体' : 'Times New Roman', size: HALF_PT.body }));
+        }
+        children.push(p);
+        seenContent = true;
         break;
+      }
     }
   }
 
-  // Handle keywords specially — find and insert them after the title
-  const kwBlocks = blocks.filter(b => b.type === 'keywords');
-  const finalChildren = [];
-  let kwInserted = false;
-  for (const c of children) {
-    finalChildren.push(c);
-    // After first heading1 (摘要), try to insert keywords
-    if (!kwInserted && kwBlocks.length > 0 && c._text === undefined) {
-      // Actually, let's handle keywords inline with the blocks more naturally
-    }
-  }
-
-  // Simplification: build the document from sections
-  const doc = new Document({
+  return new Document({
     sections: [{
       properties: {
-        page: {
-          margin: {
-            top: 907,    // 2.54cm in twips
-            bottom: 907,
-            left: 1140,  // 3.17cm in twips
-            right: 1140,
-          },
-        },
+        page: { margin: { top: 907, bottom: 907, left: 1140, right: 1140 } },
       },
-      children: children,
+      children,
     }],
   });
-
-  return doc;
 }
 
 /* ── Download ──────────────────────────── */
 
-async function generateAndDownload(markdown) {
-  if (!markdown.trim()) {
-    alert('请先输入 Markdown 内容');
-    return;
-  }
-
+async function generateAndDownload(markdown, filename = 'thesis.docx') {
   const doc = buildDocx(markdown);
   const blob = await Packer.toBlob(doc);
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = 'thesis.docx';
+  a.download = filename;
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
 }
 
-/* ── UI Bindings ───────────────────────── */
+/* ── Word Count ────────────────────────── */
+
+function countChineseWords(text) {
+  const chinese = (text.match(/[一-鿿]/g) || []).length;
+  const english = (text.match(/[a-zA-Z]+/g) || []).length;
+  return { chinese, english, total: chinese + english };
+}
+
+/* ── Status Helpers ────────────────────── */
+
+const STATUS_MESSAGES = {
+  generated: '✅ DOCX 已下载 — 用 Word/WPS 打开即可看到格式',
+  copied: '✅ 内容已复制到剪贴板',
+  cleared: '🗑 编辑器已清空',
+  fileLoaded: (name) => `📂 已加载：${name}`,
+  templateLoaded: (name) => `📋 已加载「${name}」模板 — 修改内容后点"生成 DOCX"`,
+  error: (msg) => `❌ ${msg}`,
+};
+
+/* ── UI Initialization ─────────────────── */
 
 document.addEventListener('DOMContentLoaded', () => {
   const editor = document.getElementById('editor');
@@ -496,62 +404,100 @@ document.addEventListener('DOMContentLoaded', () => {
   const clearBtn = document.getElementById('clearBtn');
   const templateSelect = document.getElementById('templateSelect');
   const statusEl = document.getElementById('status');
+  const wordCountEl = document.getElementById('wordCount');
+  const dropOverlay = document.getElementById('dropOverlay');
+  const fileInput = document.getElementById('fileInput');
+  const onboarding = document.getElementById('onboarding');
+  const onClose = document.getElementById('onClose');
+  const previewEmpty = preview?.querySelector('.preview-empty');
 
   if (!editor || !preview) return;
 
-  // Live preview using marked (loaded via CDN)
+  /* ── Onboarding ────────────────── */
+  if (onboarding && onClose) {
+    const dismissed = localStorage.getItem('onboarding-dismissed');
+    if (dismissed) onboarding.style.display = 'none';
+    onClose.addEventListener('click', () => {
+      onboarding.style.display = 'none';
+      localStorage.setItem('onboarding-dismissed', '1');
+    });
+  }
+
+  /* ── Live Preview ──────────────── */
   function updatePreview() {
     const md = editor.value;
-    if (typeof marked !== 'undefined') {
+    if (md.trim() && typeof marked !== 'undefined') {
       preview.innerHTML = marked.parse(md, { breaks: false });
+    } else if (!md.trim() && previewEmpty) {
+      preview.innerHTML = '';
+      preview.appendChild(previewEmpty);
     } else {
       preview.textContent = md;
     }
   }
 
-  editor.addEventListener('input', updatePreview);
+  function updateWordCount() {
+    const { total } = countChineseWords(editor.value);
+    if (wordCountEl) wordCountEl.textContent = `${total.toLocaleString()} 字`;
+  }
 
-  // Generate DOCX
+  function setStatus(msg, type = '') {
+    if (statusEl) {
+      statusEl.textContent = msg;
+      statusEl.className = 'status ' + type;
+    }
+  }
+
+  editor.addEventListener('input', () => {
+    updatePreview();
+    updateWordCount();
+    setStatus('');
+  });
+
+  /* ── Generate DOCX ─────────────── */
   if (generateBtn) {
     generateBtn.addEventListener('click', async () => {
+      if (!editor.value.trim()) {
+        setStatus('⚠️ 请先输入 Markdown 内容，或拖入 .md 文件，或加载模板', 'warn');
+        return;
+      }
       generateBtn.disabled = true;
-      generateBtn.textContent = '生成中...';
-      statusEl.textContent = '';
+      generateBtn.textContent = '生成中…';
+      setStatus('');
       try {
         await generateAndDownload(editor.value);
-        statusEl.textContent = '✓ DOCX 已生成并下载';
-        statusEl.className = 'status success';
+        setStatus(STATUS_MESSAGES.generated, 'success');
       } catch (err) {
         console.error(err);
-        statusEl.textContent = `✗ 生成失败：${err.message}`;
-        statusEl.className = 'status error';
+        setStatus(STATUS_MESSAGES.error(err.message), 'error');
       }
       generateBtn.disabled = false;
       generateBtn.textContent = '生成 DOCX';
     });
   }
 
-  // Copy
+  /* ── Copy ───────────────────────── */
   if (copyBtn) {
     copyBtn.addEventListener('click', async () => {
+      if (!editor.value.trim()) return;
       await navigator.clipboard.writeText(editor.value);
-      statusEl.textContent = '✓ 已复制';
-      statusEl.className = 'status success';
+      setStatus(STATUS_MESSAGES.copied, 'success');
     });
   }
 
-  // Clear
+  /* ── Clear ──────────────────────── */
   if (clearBtn) {
     clearBtn.addEventListener('click', () => {
-      if (editor.value.trim() && !confirm('确定清空所有内容吗？')) return;
+      if (editor.value.trim() && !confirm('确定清空编辑器中的所有内容吗？')) return;
       editor.value = '';
       updatePreview();
-      statusEl.textContent = '';
-      templateSelect.value = '';
+      updateWordCount();
+      if (templateSelect) templateSelect.value = '';
+      setStatus(STATUS_MESSAGES.cleared, '');
     });
   }
 
-  // Template
+  /* ── Template ───────────────────── */
   if (templateSelect) {
     templateSelect.addEventListener('change', () => {
       const key = templateSelect.value;
@@ -564,12 +510,13 @@ document.addEventListener('DOMContentLoaded', () => {
       }
       editor.value = tmpl;
       updatePreview();
-      statusEl.textContent = `✓ 已加载「${templateSelect.options[templateSelect.selectedIndex].text}」模板`;
-      statusEl.className = 'status success';
+      updateWordCount();
+      const name = templateSelect.options[templateSelect.selectedIndex].text;
+      setStatus(STATUS_MESSAGES.templateLoaded(name), 'success');
     });
   }
 
-  // Keyboard shortcut: Ctrl+Enter to generate
+  /* ── Keyboard Shortcut ──────────── */
   editor.addEventListener('keydown', (e) => {
     if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
       e.preventDefault();
@@ -577,32 +524,98 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  // Resize handle (drag to resize panels)
+  /* ── Drag & Drop ────────────────── */
+  let dragCounter = 0;
+
+  function showDropOverlay() {
+    if (dropOverlay) dropOverlay.classList.add('active');
+  }
+
+  function hideDropOverlay() {
+    if (dropOverlay) dropOverlay.classList.remove('active');
+    dragCounter = 0;
+  }
+
+  document.addEventListener('dragenter', (e) => {
+    e.preventDefault();
+    dragCounter++;
+    showDropOverlay();
+  });
+
+  document.addEventListener('dragleave', (e) => {
+    e.preventDefault();
+    dragCounter--;
+    if (dragCounter <= 0) hideDropOverlay();
+  });
+
+  document.addEventListener('dragover', (e) => {
+    e.preventDefault();
+  });
+
+  document.addEventListener('drop', (e) => {
+    e.preventDefault();
+    hideDropOverlay();
+    const files = e.dataTransfer?.files;
+    if (files && files.length > 0) {
+      loadFile(files[0]);
+    }
+  });
+
+  /* ── File Input ─────────────────── */
+  if (fileInput) {
+    fileInput.addEventListener('change', () => {
+      const file = fileInput.files?.[0];
+      if (file) loadFile(file);
+      fileInput.value = '';
+    });
+  }
+
+  function loadFile(file) {
+    const validExts = ['.md', '.txt', '.markdown'];
+    const ext = '.' + file.name.split('.').pop().toLowerCase();
+    if (!validExts.includes(ext)) {
+      setStatus(STATUS_MESSAGES.error(`不支持的文件类型（${ext}），请使用 .md / .txt / .markdown`), 'error');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const content = e.target?.result;
+      if (typeof content !== 'string') return;
+      if (editor.value.trim() && !confirm(`加载「${file.name}」将覆盖当前内容，确定吗？`)) return;
+      editor.value = content;
+      updatePreview();
+      updateWordCount();
+      if (templateSelect) templateSelect.value = '';
+      setStatus(STATUS_MESSAGES.fileLoaded(file.name), 'success');
+    };
+    reader.onerror = () => {
+      setStatus(STATUS_MESSAGES.error('文件读取失败，请重试'), 'error');
+    };
+    reader.readAsText(file);
+  }
+
+  /* ── Resize Handle ──────────────── */
   const handle = document.getElementById('resizeHandle');
   const leftPanel = document.getElementById('leftPanel');
   const rightPanel = document.getElementById('rightPanel');
 
   if (handle && leftPanel && rightPanel) {
     let dragging = false;
-
     handle.addEventListener('mousedown', (e) => {
       dragging = true;
       document.body.style.cursor = 'col-resize';
       document.body.style.userSelect = 'none';
       e.preventDefault();
     });
-
     document.addEventListener('mousemove', (e) => {
       if (!dragging) return;
       const container = leftPanel.parentElement;
       if (!container) return;
       const rect = container.getBoundingClientRect();
-      const leftWidth = ((e.clientX - rect.left) / rect.width) * 100;
-      const clamped = Math.max(20, Math.min(80, leftWidth));
-      leftPanel.style.flex = `${clamped}`;
-      rightPanel.style.flex = `${100 - clamped}`;
+      const pct = Math.max(20, Math.min(80, ((e.clientX - rect.left) / rect.width) * 100));
+      leftPanel.style.flex = `${pct}`;
+      rightPanel.style.flex = `${100 - pct}`;
     });
-
     document.addEventListener('mouseup', () => {
       if (dragging) {
         dragging = false;
@@ -612,8 +625,9 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // Initial preview
+  /* ── Init ────────────────────────── */
   updatePreview();
+  updateWordCount();
 });
 
 export { generateAndDownload, buildDocx, parseMarkdown };
