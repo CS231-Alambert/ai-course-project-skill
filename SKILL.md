@@ -125,13 +125,33 @@ python scripts/generate_task_checklist.py paper-output/thesis.md
 | 脚本 | 用途 |
 |------|------|
 | `init_project.py` | 一键初始化论文工作区 |
-| `build_evidence.py` | 扫描项目源码，提取技术栈/API/Schema/测试证据 |
+| `build_evidence.py` | 扫描项目源码，提取技术栈/API/Schema/测试证据 + 函数签名 + 配置值 + Git 信息 + README 概要 |
+| `parse_requirements.py` | **新增** — 解析课程要求文档 (PDF/DOCX/MD)，自动提取格式规格 |
 | `generate_docx.py` | Markdown → 格式化 DOCX |
 | `build_image_map.py` | 将图片目录映射为 JSON，供 DOCX 生成器使用 |
 | `render_mermaid.py` | 渲染 Markdown 中的 Mermaid 图表为 PNG |
 | `count_words.py` | 按章统计字数 |
 | `check_references.py` | 检查参考文献编号、年份、语言分布 |
-| `generate_task_checklist.py` | **新增** — 解析缺失素材，生成桌面待办清单 DOCX |
+| `generate_task_checklist.py` | 解析缺失素材，生成桌面待办清单 DOCX |
+
+### Step 0: 解析课程要求（推荐首先执行）
+
+如果你有老师发的课程论文要求文档（PDF/DOCX/MD），先运行此命令自动提取格式规格，避免手动配置：
+
+```bash
+python scripts/parse_requirements.py 课程论文要求.pdf --out paper-context/format-spec.md
+```
+
+**自动检测**：
+- 字体要求（正文/标题/大标题）
+- 字号要求（小四/五号/三号 → 自动转换 pt）
+- 行距（1.5 倍/单倍）
+- 页边距（上下 cm / 左右 cm）
+- 首行缩进（字符数）
+- 字数要求（不少于 X 字 / X-Y 字）
+- 要求的章节结构
+- 参考文献格式规则
+- 其他规则（查重率、AIGC 声明等）
 
 ## 关键原则
 
