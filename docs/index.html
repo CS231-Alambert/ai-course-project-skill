@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>AI Course Project Workbench — 在线写论文，一键生成 DOCX</title>
-<meta name="description" content="零安装。浏览器里写 Markdown，拖入 .md 文件，一键生成格式规范的 DOCX 课程论文。宋体/黑体、1.5 倍行距、首行缩进，开箱即用。">
+<title>AI Course Project Workbench — 六合一课程论文工作台</title>
+<meta name="description" content="在线 Markdown 编辑器 + 证据提取 + 图片管理 + 字数统计 + 参考文献检查 + 待办清单生成。零安装，浏览器里完成论文全流程。">
 <link rel="stylesheet" href="style.css">
 <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 <script type="importmap">
@@ -13,228 +13,198 @@
 </head>
 <body>
 
-<!-- ═══ Drop Zone Overlay ═══ -->
+<!-- ═══ Drop Zone ═══ -->
 <div class="drop-overlay" id="dropOverlay">
   <div class="drop-modal">
-    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-      <polyline points="17 8 12 3 7 8"/>
-      <line x1="12" y1="3" x2="12" y2="15"/>
-    </svg>
-    <p class="drop-title">松开以加载文件</p>
+    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+    <p class="drop-title">松开以加载 Markdown 文件</p>
     <p class="drop-hint">支持 .md / .txt / .markdown</p>
   </div>
 </div>
 
 <!-- ═══ Nav ═══ -->
-<header class="nav-bar" id="navbar">
+<header class="nav-bar">
   <div class="nav-inner">
     <a href="#" class="nav-logo">
-      <svg class="logo-icon" width="24" height="24" viewBox="0 0 28 28" fill="none">
-        <rect x="2" y="4" width="24" height="20" rx="3" stroke="currentColor" stroke-width="2"/>
-        <path d="M8 10h12M8 14h8M8 18h5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-      </svg>
+      <svg class="logo-icon" width="24" height="24" viewBox="0 0 28 28" fill="none"><rect x="2" y="4" width="24" height="20" rx="3" stroke="currentColor" stroke-width="2"/><path d="M8 10h12M8 14h8M8 18h5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
       <span>AI Thesis Workbench</span>
     </a>
-    <nav class="nav-links">
-      <a href="#docs">文档</a>
-      <a href="https://gitee.com/lambert24559/ai-course-project-skill" target="_blank" rel="noopener">Gitee</a>
-    </nav>
-    <button class="theme-toggle" id="themeToggle" aria-label="切换主题" title="切换深色/浅色模式">
-      <svg class="sun-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
-      <svg class="moon-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
-    </button>
+    <div class="nav-right">
+      <a href="https://gitee.com/lambert24559/ai-course-project-skill" class="nav-link" target="_blank" rel="noopener">Gitee</a>
+      <button class="theme-toggle" id="themeToggle" title="切换深色/浅色">🌓</button>
+    </div>
   </div>
 </header>
 
-<!-- ═══ Onboarding Banner ═══ -->
-<div class="onboarding" id="onboarding">
-  <div class="onboarding-inner">
-    <div class="onboarding-steps">
-      <div class="on-step done"><span class="on-num">1</span> 写 Markdown（或拖入 .md 文件）</div>
-      <div class="on-arrow">→</div>
-      <div class="on-step"><span class="on-num">2</span> 右侧实时预览效果</div>
-      <div class="on-arrow">→</div>
-      <div class="on-step"><span class="on-num">3</span> 点「生成 DOCX」下载论文</div>
-    </div>
-    <button class="on-close" id="onClose" title="关闭引导">✕</button>
-  </div>
-</div>
+<!-- ═══ Main ═══ -->
+<main class="app">
 
-<!-- ═══ Tool Area ═══ -->
-<main class="tool-area">
-  <!-- Toolbar -->
-  <div class="toolbar">
-    <div class="toolbar-left">
-      <select id="templateSelect" class="tool-select" title="选择预设模板快速开始">
-        <option value="">📋 加载模板…</option>
-        <option value="full">📝 完整论文 (5章)</option>
-        <option value="simple">🔬 实验报告 (简易)</option>
-      </select>
-      <span class="toolbar-divider"></span>
-      <label class="file-btn" title="从本地选择 .md 文件加载">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-        打开文件
-        <input type="file" id="fileInput" accept=".md,.txt,.markdown" hidden>
-      </label>
-    </div>
-    <div class="toolbar-right">
-      <span class="word-count" id="wordCount" title="中文字数">0 字</span>
-      <button id="copyBtn" class="btn-tool" title="复制全部内容到剪贴板">复制</button>
-      <button id="clearBtn" class="btn-tool" title="清空编辑器">清空</button>
-      <button id="generateBtn" class="btn-generate" title="生成并下载 DOCX 文件（Ctrl+Enter）">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-        生成 DOCX
-      </button>
-    </div>
-  </div>
+  <!-- ── Left: Tab Switcher + Input ── -->
+  <div class="app-left" id="leftPanel">
+    <!-- Tab bar -->
+    <nav class="tab-bar">
+      <button class="tab active" data-tab="editor">✍️ 编辑器</button>
+      <button class="tab" data-tab="evidence">🔍 证据提取</button>
+      <button class="tab" data-tab="images">🖼 图片管理</button>
+      <button class="tab" data-tab="wordcount">📊 字数统计</button>
+      <button class="tab" data-tab="references">✓ 参考文献</button>
+      <button class="tab" data-tab="checklist">📋 待办清单</button>
+    </nav>
 
-  <!-- Editor + Preview -->
-  <div class="panels">
-    <div class="panel panel-left" id="leftPanel">
-      <div class="panel-header">
-        <span class="panel-label">📝 Markdown 编辑器</span>
-        <span class="panel-tip">支持拖拽 .md 文件到此处</span>
+    <!-- Tab: Editor ──────────────────────── -->
+    <div class="tab-panel active" id="panel-editor">
+      <div class="panel-toolbar">
+        <span class="panel-label">Markdown 编辑器</span>
+        <div class="panel-actions">
+          <select id="templateSelect" class="tool-select" title="快速加载论文模板">
+            <option value="">📋 加载模板…</option>
+            <option value="full">📝 完整论文 (5章)</option>
+            <option value="simple">🔬 实验报告 (简易)</option>
+          </select>
+          <label class="btn-tool file-label" title="从本地打开 .md 文件">
+            📂 打开文件
+            <input type="file" id="fileInput" accept=".md,.txt,.markdown" hidden>
+          </label>
+          <button class="btn-tool" id="copyBtn" title="复制全部内容">📋 复制</button>
+          <button class="btn-tool" id="clearBtn" title="清空编辑器">🗑 清空</button>
+          <button class="btn-generate" id="generateBtn" title="Ctrl+Enter">
+            📥 生成 DOCX
+          </button>
+        </div>
       </div>
-      <textarea id="editor" class="editor" placeholder="### 👋 三种方式开始：
+      <textarea id="editor" class="editor" placeholder="### 👋 三种方式开始
 
 1. 直接在这里写 Markdown
-2. 拖一个 .md 文件进来
-3. 从顶部「📋 加载模板」选择一个预设结构
+2. 拖一个 .md 文件到页面任意位置
+3. 顶部「📋 加载模板」选一个预设结构
 
----
-
-# 论文标题
-
-## 摘要
-写一段 200-300 字的摘要，概括你做了什么、用了什么方法、得到了什么结果。
-
-## 关键词
-关键词：人工智能；深度学习；你的关键词
-
-## 第1章 引言
-介绍你的研究背景、要解决的问题、以及本文的主要贡献。
-
-## 第2章 相关工作
-列举和你的工作相关的已有研究，分析它们的优缺点。
-
-## 第3章 方法
-详细描述你的模型架构、算法流程，配图更佳。
-
-## 第4章 实验
-
-| 方法 | 准确率 | F1 分数 |
-|------|--------|---------|
-| Baseline | 0.82 | 0.79 |
-| 本文方法 | 0.89 | 0.86 |
-
-表4-1 实验结果对比
-
-## 第5章 总结与展望
-总结全文工作，诚实分析不足，展望未来改进方向。
-
-## 参考文献
-[1] 作者. 论文标题. 期刊/会议, 年份.
-[2] ..." spellcheck="false"></textarea>
+支持：标题 / 表格 / 代码块 / LaTeX公式 / 图片 / 参考文献" spellcheck="false"></textarea>
+      <div class="status-bar">
+        <span class="word-count" id="wordCount">0 字</span>
+        <span class="kb-hint"><kbd>Ctrl</kbd>+<kbd>↵</kbd> 生成 DOCX</span>
+        <span id="status" class="status"></span>
+      </div>
     </div>
 
-    <div class="resize-handle" id="resizeHandle" title="拖拽调整左右宽度"></div>
-
-    <div class="panel panel-right" id="rightPanel">
-      <div class="panel-header">
-        <span class="panel-label">👁 实时预览</span>
-        <span class="panel-tip">所见即所得</span>
+    <!-- Tab: Evidence ────────────────────── -->
+    <div class="tab-panel" id="panel-evidence">
+      <div class="panel-toolbar">
+        <span class="panel-label">项目证据提取</span>
+        <span class="panel-desc">对应 build_evidence.py</span>
       </div>
-      <div id="preview" class="preview">
-        <div class="preview-empty">
-          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" opacity="0.3">
-            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
-            <circle cx="12" cy="12" r="3"/>
-          </svg>
-          <p>在左边写 Markdown，这里会实时渲染预览</p>
+      <div class="form-area">
+        <div class="form-group">
+          <label>项目名称</label>
+          <input type="text" id="evProjectName" placeholder="例如：图像分类实验项目">
+        </div>
+        <div class="form-group">
+          <label>技术栈 <span class="form-hint">（package.json / requirements.txt 等）</span></label>
+          <textarea id="evTechStack" rows="2" placeholder="Python 3.10, PyTorch 2.0, Transformers, Flask"></textarea>
+        </div>
+        <div class="form-group">
+          <label>API 接口 / 入口文件</label>
+          <textarea id="evApi" rows="2" placeholder="app.py (Flask API), src/train.py (训练入口), predict.py (推理)"></textarea>
+        </div>
+        <div class="form-group">
+          <label>数据库 / Schema / 数据文件</label>
+          <textarea id="evSchema" rows="2" placeholder="data/dataset.csv, models/user.py, schema.sql"></textarea>
+        </div>
+        <div class="form-group">
+          <label>测试文件</label>
+          <textarea id="evTests" rows="2" placeholder="tests/test_model.py, tests/test_api.py"></textarea>
+        </div>
+        <button class="btn-generate" id="evBuildBtn">🔍 生成证据报告</button>
+      </div>
+      <div id="evOutput" class="form-output"></div>
+    </div>
+
+    <!-- Tab: Images ──────────────────────── -->
+    <div class="tab-panel" id="panel-images">
+      <div class="panel-toolbar">
+        <span class="panel-label">图片管理</span>
+        <span class="panel-desc">对应 build_image_map.py</span>
+      </div>
+      <div class="form-area">
+        <div class="drop-zone" id="imgDropZone">
+          <p>🖼 拖拽图片文件到此处上传</p>
+          <p class="form-hint">支持 PNG / JPG / GIF / SVG / WebP</p>
+          <label class="btn-tool file-label" style="display:inline-flex;margin-top:0.5rem">选择文件
+            <input type="file" id="imgFileInput" accept="image/*" multiple hidden>
+          </label>
+        </div>
+        <div id="imgGrid" class="img-grid"></div>
+        <div class="form-row">
+          <button class="btn-generate" id="imgMapBtn">📋 生成 image-map.json</button>
+          <button class="btn-tool" id="imgClearBtn">清空全部</button>
+        </div>
+        <pre id="imgMapOutput" class="json-output" style="display:none"></pre>
+      </div>
+    </div>
+
+    <!-- Tab: Word Count ──────────────────── -->
+    <div class="tab-panel" id="panel-wordcount">
+      <div class="panel-toolbar">
+        <span class="panel-label">字数统计</span>
+        <span class="panel-desc">对应 count_words.py — 自动读取编辑器内容</span>
+      </div>
+      <div class="form-area">
+        <button class="btn-generate" id="wcAnalyzeBtn">📊 分析字数</button>
+        <div id="wcOutput" class="form-output" style="margin-top:var(--space-4)">
+          <p class="form-hint">点击按钮，自动分析左侧编辑器中的论文章节字数</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tab: References ──────────────────── -->
+    <div class="tab-panel" id="panel-references">
+      <div class="panel-toolbar">
+        <span class="panel-label">参考文献检查</span>
+        <span class="panel-desc">对应 check_references.py — 自动读取编辑器中「参考文献」章节</span>
+      </div>
+      <div class="form-area">
+        <button class="btn-generate" id="refCheckBtn">✓ 检查参考文献</button>
+        <div id="refOutput" class="form-output" style="margin-top:var(--space-4)">
+          <p class="form-hint">点击按钮，自动解析编辑器中 ## 参考文献 下的条目</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tab: Checklist ───────────────────── -->
+    <div class="tab-panel" id="panel-checklist">
+      <div class="panel-toolbar">
+        <span class="panel-label">待办清单生成</span>
+        <span class="panel-desc">对应 generate_task_checklist.py</span>
+      </div>
+      <div class="form-area">
+        <button class="btn-generate" id="clGenBtn">📋 生成待办清单 DOCX</button>
+        <div id="clOutput" class="form-output" style="margin-top:var(--space-4)">
+          <p class="form-hint">扫描编辑器中的截图占位符，生成待办清单 DOCX 下载</p>
         </div>
       </div>
     </div>
   </div>
 
-  <!-- Status bar -->
-  <div class="toolbar-bottom">
-    <div class="status-left">
-      <span id="status" class="status"></span>
+  <!-- ── Resize Handle ── -->
+  <div class="resize-handle" id="resizeHandle" title="拖拽调整宽度"></div>
+
+  <!-- ── Right: Preview / Output ── -->
+  <div class="app-right" id="rightPanel">
+    <div class="panel-toolbar">
+      <span class="panel-label">👁 实时预览 / 输出</span>
     </div>
-    <div class="status-right">
-      <span class="kb-hint" title="在编辑器中按 Ctrl+Enter 快速生成">
-        <kbd>Ctrl</kbd> + <kbd>↵</kbd> 快速生成
-      </span>
+    <div id="preview" class="preview">
+      <div class="preview-empty" id="previewEmpty">
+        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" opacity="0.3"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+        <p>在左边写 Markdown<br>这里实时渲染预览</p>
+      </div>
     </div>
   </div>
 </main>
 
-<!-- ═══ Quick Tips Section ═══ -->
-<section class="section section-alt" id="tips">
-  <div class="section-inner">
-    <div class="tips-grid">
-      <div class="tip-card">
-        <div class="tip-icon">💡</div>
-        <h4>语法参考</h4>
-        <p><code>#</code> 大标题 · <code>##</code> 一级 · <code>###</code> 二级 · <code>####</code> 三级</p>
-        <p><code>| 列A | 列B |</code> 创建表格</p>
-        <p><code>$$ 公式 $$</code> 插入 LaTeX</p>
-        <p><code>```python</code> 代码块</p>
-        <p><code>![描述](路径)</code> 图片</p>
-      </div>
-      <div class="tip-card">
-        <div class="tip-icon">📐</div>
-        <h4>格式规格</h4>
-        <p>正文：宋体 12pt · 1.5 倍行距 · 首行缩进</p>
-        <p>标题：宋体加粗 · 16pt/14pt</p>
-        <p>大标题：宋体 22pt · 加粗居中</p>
-        <p>图表标题：宋体 10.5pt · 居中</p>
-        <p>参考文献：宋体 10.5pt · 悬挂缩进</p>
-      </div>
-      <div class="tip-card">
-        <div class="tip-icon">⌨️</div>
-        <h4>快捷操作</h4>
-        <p><kbd>Ctrl+Enter</kbd> → 生成并下载 DOCX</p>
-        <p>拖拽 .md 文件到编辑器 → 加载文件</p>
-        <p>顶部「打开文件」→ 从本地选择文件</p>
-        <p>「加载模板」→ 一键填充论文结构</p>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- ═══ Docs ═══ -->
-<section class="section" id="docs">
-  <div class="section-inner">
-    <h2 class="section-title">支持语法详解</h2>
-    <div class="table-wrap">
-      <table class="scripts-table">
-        <thead><tr><th>元素</th><th>语法</th><th>在 DOCX 中的效果</th></tr></thead>
-        <tbody>
-          <tr><td>大标题</td><td><code># 标题</code></td><td>宋体 22pt 加粗居中</td></tr>
-          <tr><td>一级标题</td><td><code>## 章节名</code></td><td>宋体 16pt 加粗，自动分页</td></tr>
-          <tr><td>二级标题</td><td><code>### 小节名</code></td><td>宋体 14pt 加粗</td></tr>
-          <tr><td>三级标题</td><td><code>#### 细目</code></td><td>宋体 12pt 加粗</td></tr>
-          <tr><td>正文</td><td>普通段落</td><td>宋体 12pt · 1.5 倍行距 · 首行缩进</td></tr>
-          <tr><td>表格</td><td><code>| A | B |</code></td><td>宋体 10.5pt · 居中对齐 · 带边框</td></tr>
-          <tr><td>代码块</td><td><code>```python</code></td><td>Consolas 9pt 等宽</td></tr>
-          <tr><td>公式</td><td><code>$$ E=mc^2 $$</code></td><td>Times New Roman 12pt 居中</td></tr>
-          <tr><td>关键词</td><td><code>关键词：xxx；xxx</code></td><td>加粗标签 + 正文内容</td></tr>
-          <tr><td>图表标题</td><td><code>图1-1 xxx</code> / <code>表1-1 xxx</code></td><td>宋体 10.5pt 居中</td></tr>
-          <tr><td>参考文献</td><td><code>[1] 作者...</code></td><td>宋体 10.5pt · 悬挂缩进</td></tr>
-        </tbody>
-      </table>
-    </div>
-  </div>
-</section>
-
 <!-- ═══ Footer ═══ -->
 <footer class="footer">
   <div class="footer-inner">
-    <div class="footer-bottom" style="border:none;padding-top:0">
-      <p>© 2025 Lambert Liu (CS231-Alambert) · MIT License · 基于 <a href="https://github.com/ZyhSechub/chinese-thesis-workbench-skill" target="_blank" rel="noopener" style="color:var(--color-accent)">chinese-thesis-workbench-skill</a> 裁剪</p>
-    </div>
+    <p>© 2025 Lambert Liu · MIT · <a href="https://github.com/ZyhSechub/chinese-thesis-workbench-skill" target="_blank" rel="noopener" style="color:var(--color-accent)">上游项目</a></p>
   </div>
 </footer>
 
