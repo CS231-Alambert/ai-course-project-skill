@@ -1,6 +1,6 @@
 /* ═══════════════════════════════════════════
    AI Course Project Workbench — app.js
-   6-tab workbench: Editor | Evidence | Images
+   7 tabs: Editor | AI | Evidence | Images
    | Word Count | References | Checklist
    ═══════════════════════════════════════════ */
 
@@ -76,7 +76,114 @@ function showStatus(msg, type) {
 }
 
 /* ═══════════════════════════════════════════
-   SECTION 1 — DOCX Generator (generate_docx.py)
+   SECTION 1 — AI Generator (DeepSeek API)
+   ═══════════════════════════════════════════ */
+
+const DEEPSEEK_BASE = 'https://api.deepseek.com/v1';
+
+function getApiKey() {
+  return localStorage.getItem('deepseek_api_key') || '';
+}
+
+async function callDeepSeek(systemPrompt, userPrompt) {
+  const key = getApiKey();
+  if (!key) throw new Error('请先设置 DeepSeek API Key');
+
+  const resp = await fetch(`${DEEPSEEK_BASE}/chat/completions`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${key}` },
+    body: JSON.stringify({
+      model: 'deepseek-chat',
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userPrompt },
+      ],
+      temperature: 0.7,
+      max_tokens: 4096,
+    }),
+  });
+
+  if (!resp.ok) {
+    const err = await resp.json().catch(() => ({}));
+    throw new Error(err.error?.message || `API 请求失败 (${resp.status})`);
+  }
+
+  const data = await resp.json();
+  return data.choices?.[0]?.message?.content || '';
+}
+
+const AI_SYSTEM_PROMPT = `你是一位 AI 课程论文写作助手。根据用户提供的项目信息，生成一篇结构完整的课程论文 Markdown。
+
+要求：
+1. 使用 # ## ### 标题层级
+2. 包含：摘要、关键词、第1章引言、第2章相关工作、第3章方法、第4章实验、第5章总结与展望、参考文献
+3. 正文使用学术风格，客观严谨，不编造数据
+4. 表格使用 GFM 格式 |...|
+5. 公式使用 $$...$$
+6. 用户提供的实验数据直接使用，不要修改
+7. 参考文献至少列出 5 条相关的中英文学术文献
+8. 论文标题使用用户项目名称
+9. 总字数控制在 3000-5000 字`;
+
+async function generateThesisWithAI() {
+  const desc = $('#aiProjectDesc')?.value?.trim() || '';
+  const tech = $('#aiTechDetail')?.value?.trim() || '';
+  const results = $('#aiResults')?.value?.trim() || '';
+  const append = $('#aiAppend')?.checked ?? true;
+
+  if (!desc) { showStatus('⚠️ 请至少填写项目描述', 'warn'); return; }
+
+  const output = $('#aiOutput');
+  const btn = $('#aiGenBtn');
+  if (output) { output.innerHTML = '<p class="form-hint">⏳ AI 正在生成论文初稿，请稍候（通常 15-30 秒）...</p>'; output.classList.add('generating'); }
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ 生成中…'; }
+
+  try {
+    const userPrompt = `请根据以下项目信息，生成一篇完整的课程论文：
+
+【项目描述】
+${desc}
+
+【技术栈 & 实验配置】
+${tech || '（未提供）'}
+
+【实验结果】
+${results || '（未提供）'}
+
+请严格按照要求的章节结构生成。如果某些信息未提供，请根据项目描述合理推测并注明"建议补充"。`;
+
+    const md = await callDeepSeek(AI_SYSTEM_PROMPT, userPrompt);
+
+    if (output) { output.innerHTML = '<p class="ok">✅ AI 生成完成！内容已写入编辑器，请在右侧预览中查看。</p>'; output.classList.remove('generating'); }
+
+    // Write to editor
+    const editor = $('#editor');
+    if (editor) {
+      if (append && editor.value.trim()) {
+        editor.value = editor.value.trimEnd() + '\n\n' + md;
+      } else {
+        editor.value = md;
+      }
+      editor.dispatchEvent(new Event('input'));
+      // Switch to editor tab
+      $$('.tab').forEach(t => t.classList.remove('active'));
+      const editorTab = document.querySelector('[data-tab="editor"]');
+      if (editorTab) editorTab.classList.add('active');
+      $$('.tab-panel').forEach(p => p.classList.remove('active'));
+      $('#panel-editor')?.classList.add('active');
+    }
+
+    showStatus('✅ AI 论文初稿已生成，请审阅修改', 'success');
+  } catch (err) {
+    if (output) { output.innerHTML = `<p class="err">❌ 生成失败：${err.message}</p>`; output.classList.remove('generating'); }
+    showStatus(`❌ ${err.message}`, 'error');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '🤖 AI 生成论文初稿'; }
+  }
+}
+
+/* ═══════════════════════════════════════════
+   SECTION 2 — DOCX Generator (generate_docx.py)
    ═══════════════════════════════════════════ */
 
 const HALF_PT = { title:44, h1:32, h2:28, h3:24, body:24, caption:21, code:18, ref:21, eq:24 };
@@ -217,7 +324,7 @@ async function downloadDocx(md) {
 }
 
 /* ═══════════════════════════════════════════
-   SECTION 2 — Evidence Builder (build_evidence.py)
+   SECTION 3 — Evidence Builder (build_evidence.py)
    ═══════════════════════════════════════════ */
 
 function buildEvidence() {
@@ -251,7 +358,7 @@ function buildEvidence() {
 }
 
 /* ═══════════════════════════════════════════
-   SECTION 3 — Image Manager (build_image_map.py)
+   SECTION 4 — Image Manager (build_image_map.py)
    ═══════════════════════════════════════════ */
 
 let imgStore = [];
@@ -298,7 +405,7 @@ function buildImageMap() {
 }
 
 /* ═══════════════════════════════════════════
-   SECTION 4 — Word Count (count_words.py)
+   SECTION 5 — Word Count (count_words.py)
    ═══════════════════════════════════════════ */
 
 function analyzeWordCount() {
@@ -334,7 +441,7 @@ function analyzeWordCount() {
 }
 
 /* ═══════════════════════════════════════════
-   SECTION 5 — Reference Checker (check_references.py)
+   SECTION 6 — Reference Checker (check_references.py)
    ═══════════════════════════════════════════ */
 
 function checkReferences() {
@@ -381,7 +488,7 @@ function checkReferences() {
 }
 
 /* ═══════════════════════════════════════════
-   SECTION 6 — Checklist Generator (generate_task_checklist.py)
+   SECTION 7 — Checklist Generator (generate_task_checklist.py)
    ═══════════════════════════════════════════ */
 
 async function generateChecklist() {
@@ -492,7 +599,7 @@ function buildChecklistDocx(title, screenshots, refCount) {
 }
 
 /* ═══════════════════════════════════════════
-   SECTION 7 — UI Wiring
+   SECTION 8 — UI Wiring
    ═══════════════════════════════════════════ */
 
 function getEditorValue() { return $('#editor')?.value || ''; }
@@ -572,6 +679,17 @@ document.addEventListener('DOMContentLoaded', () => {
   editor?.addEventListener('keydown', e => {
     if ((e.ctrlKey||e.metaKey) && e.key === 'Enter') { e.preventDefault(); $('#generateBtn')?.click(); }
   });
+
+  /* ── AI Generator ────────────────── */
+  const savedKey = localStorage.getItem('deepseek_api_key');
+  if (savedKey && $('#aiApiKey')) $('#aiApiKey').value = savedKey;
+  $('#aiSaveKey')?.addEventListener('click', () => {
+    const key = $('#aiApiKey')?.value?.trim();
+    if (!key) { showStatus('⚠️ 请输入 API Key', 'warn'); return; }
+    localStorage.setItem('deepseek_api_key', key);
+    showStatus('✅ API Key 已保存（仅存于浏览器本地）', 'success');
+  });
+  $('#aiGenBtn')?.addEventListener('click', generateThesisWithAI);
 
   /* ── Evidence Builder ─────────────── */
   $('#evBuildBtn')?.addEventListener('click', buildEvidence);

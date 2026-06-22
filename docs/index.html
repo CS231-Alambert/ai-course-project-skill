@@ -3,212 +3,183 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>AI Course Project Workbench — 六合一课程论文工作台</title>
-<meta name="description" content="在线 Markdown 编辑器 + 证据提取 + 图片管理 + 字数统计 + 参考文献检查 + 待办清单生成。零安装，浏览器里完成论文全流程。">
+<title>AI Course Project Workbench — AI 驱动的课程论文工作台</title>
+<meta name="description" content="输入项目源码目录，AI 自动提取技术证据、生成论文章节、一键输出格式规范的 DOCX。Claude Code Skill 的 Web 版，零安装。">
 <link rel="stylesheet" href="style.css">
-<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-<script type="importmap">
-{ "imports": { "docx": "https://esm.sh/docx@8.5.0" } }
-</script>
 </head>
-<body>
-
-<!-- ═══ Drop Zone ═══ -->
-<div class="drop-overlay" id="dropOverlay">
-  <div class="drop-modal">
-    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-    <p class="drop-title">松开以加载 Markdown 文件</p>
-    <p class="drop-hint">支持 .md / .txt / .markdown</p>
-  </div>
-</div>
+<body class="landing">
 
 <!-- ═══ Nav ═══ -->
 <header class="nav-bar">
   <div class="nav-inner">
     <a href="#" class="nav-logo">
-      <svg class="logo-icon" width="24" height="24" viewBox="0 0 28 28" fill="none"><rect x="2" y="4" width="24" height="20" rx="3" stroke="currentColor" stroke-width="2"/><path d="M8 10h12M8 14h8M8 18h5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+      <svg width="24" height="24" viewBox="0 0 28 28" fill="none"><rect x="2" y="4" width="24" height="20" rx="3" stroke="currentColor" stroke-width="2"/><path d="M8 10h12M8 14h8M8 18h5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
       <span>AI Thesis Workbench</span>
     </a>
     <div class="nav-right">
-      <a href="https://gitee.com/lambert24559/ai-course-project-skill" class="nav-link" target="_blank" rel="noopener">Gitee</a>
+      <a href="app.html" class="btn-nav">进入工作台 →</a>
       <button class="theme-toggle" id="themeToggle" title="切换深色/浅色">🌓</button>
     </div>
   </div>
 </header>
 
-<!-- ═══ Main ═══ -->
-<main class="app">
+<!-- ═══ Hero ═══ -->
+<section class="hero">
+  <div class="hero-badge">Claude Code Skill → Web Edition</div>
+  <h1 class="hero-title">
+    从项目源码<span class="title-accent">到课程论文</span><br>AI 全自动管道
+  </h1>
+  <p class="hero-desc">
+    给一个项目根目录 — AI 自动扫描技术栈、提取关键证据、生成论文初稿，<br>
+    你在浏览器里编辑打磨，一键下载格式规范的 DOCX。
+  </p>
+  <div class="hero-cta">
+    <a href="app.html" class="btn-hero">🚀 开始写论文</a>
+    <a href="#how" class="btn-hero-ghost">了解工作流 ↓</a>
+  </div>
 
-  <!-- ── Left: Tab Switcher + Input ── -->
-  <div class="app-left" id="leftPanel">
-    <!-- Tab bar -->
-    <nav class="tab-bar">
-      <button class="tab active" data-tab="editor">✍️ 编辑器</button>
-      <button class="tab" data-tab="evidence">🔍 证据提取</button>
-      <button class="tab" data-tab="images">🖼 图片管理</button>
-      <button class="tab" data-tab="wordcount">📊 字数统计</button>
-      <button class="tab" data-tab="references">✓ 参考文献</button>
-      <button class="tab" data-tab="checklist">📋 待办清单</button>
-    </nav>
-
-    <!-- Tab: Editor ──────────────────────── -->
-    <div class="tab-panel active" id="panel-editor">
-      <div class="panel-toolbar">
-        <span class="panel-label">Markdown 编辑器</span>
-        <div class="panel-actions">
-          <select id="templateSelect" class="tool-select" title="快速加载论文模板">
-            <option value="">📋 加载模板…</option>
-            <option value="full">📝 完整论文 (5章)</option>
-            <option value="simple">🔬 实验报告 (简易)</option>
-          </select>
-          <label class="btn-tool file-label" title="从本地打开 .md 文件">
-            📂 打开文件
-            <input type="file" id="fileInput" accept=".md,.txt,.markdown" hidden>
-          </label>
-          <button class="btn-tool" id="copyBtn" title="复制全部内容">📋 复制</button>
-          <button class="btn-tool" id="clearBtn" title="清空编辑器">🗑 清空</button>
-          <button class="btn-generate" id="generateBtn" title="Ctrl+Enter">
-            📥 生成 DOCX
-          </button>
-        </div>
-      </div>
-      <textarea id="editor" class="editor" placeholder="### 👋 三种方式开始
-
-1. 直接在这里写 Markdown
-2. 拖一个 .md 文件到页面任意位置
-3. 顶部「📋 加载模板」选一个预设结构
-
-支持：标题 / 表格 / 代码块 / LaTeX公式 / 图片 / 参考文献" spellcheck="false"></textarea>
-      <div class="status-bar">
-        <span class="word-count" id="wordCount">0 字</span>
-        <span class="kb-hint"><kbd>Ctrl</kbd>+<kbd>↵</kbd> 生成 DOCX</span>
-        <span id="status" class="status"></span>
+  <!-- Pipeline visual -->
+  <div class="pipeline-viz">
+    <div class="pv-step">
+      <div class="pv-icon">📂</div>
+      <div class="pv-body">
+        <strong>1. 源码扫描</strong>
+        <span>自动识别框架、API、数据库 Schema、测试覆盖</span>
       </div>
     </div>
-
-    <!-- Tab: Evidence ────────────────────── -->
-    <div class="tab-panel" id="panel-evidence">
-      <div class="panel-toolbar">
-        <span class="panel-label">项目证据提取</span>
-        <span class="panel-desc">对应 build_evidence.py</span>
-      </div>
-      <div class="form-area">
-        <div class="form-group">
-          <label>项目名称</label>
-          <input type="text" id="evProjectName" placeholder="例如：图像分类实验项目">
-        </div>
-        <div class="form-group">
-          <label>技术栈 <span class="form-hint">（package.json / requirements.txt 等）</span></label>
-          <textarea id="evTechStack" rows="2" placeholder="Python 3.10, PyTorch 2.0, Transformers, Flask"></textarea>
-        </div>
-        <div class="form-group">
-          <label>API 接口 / 入口文件</label>
-          <textarea id="evApi" rows="2" placeholder="app.py (Flask API), src/train.py (训练入口), predict.py (推理)"></textarea>
-        </div>
-        <div class="form-group">
-          <label>数据库 / Schema / 数据文件</label>
-          <textarea id="evSchema" rows="2" placeholder="data/dataset.csv, models/user.py, schema.sql"></textarea>
-        </div>
-        <div class="form-group">
-          <label>测试文件</label>
-          <textarea id="evTests" rows="2" placeholder="tests/test_model.py, tests/test_api.py"></textarea>
-        </div>
-        <button class="btn-generate" id="evBuildBtn">🔍 生成证据报告</button>
-      </div>
-      <div id="evOutput" class="form-output"></div>
-    </div>
-
-    <!-- Tab: Images ──────────────────────── -->
-    <div class="tab-panel" id="panel-images">
-      <div class="panel-toolbar">
-        <span class="panel-label">图片管理</span>
-        <span class="panel-desc">对应 build_image_map.py</span>
-      </div>
-      <div class="form-area">
-        <div class="drop-zone" id="imgDropZone">
-          <p>🖼 拖拽图片文件到此处上传</p>
-          <p class="form-hint">支持 PNG / JPG / GIF / SVG / WebP</p>
-          <label class="btn-tool file-label" style="display:inline-flex;margin-top:0.5rem">选择文件
-            <input type="file" id="imgFileInput" accept="image/*" multiple hidden>
-          </label>
-        </div>
-        <div id="imgGrid" class="img-grid"></div>
-        <div class="form-row">
-          <button class="btn-generate" id="imgMapBtn">📋 生成 image-map.json</button>
-          <button class="btn-tool" id="imgClearBtn">清空全部</button>
-        </div>
-        <pre id="imgMapOutput" class="json-output" style="display:none"></pre>
+    <div class="pv-arrow">→</div>
+    <div class="pv-step">
+      <div class="pv-icon">🤖</div>
+      <div class="pv-body">
+        <strong>2. AI 生成</strong>
+        <span>DeepSeek-v4 根据证据撰写引言、方法、实验章节</span>
       </div>
     </div>
-
-    <!-- Tab: Word Count ──────────────────── -->
-    <div class="tab-panel" id="panel-wordcount">
-      <div class="panel-toolbar">
-        <span class="panel-label">字数统计</span>
-        <span class="panel-desc">对应 count_words.py — 自动读取编辑器内容</span>
-      </div>
-      <div class="form-area">
-        <button class="btn-generate" id="wcAnalyzeBtn">📊 分析字数</button>
-        <div id="wcOutput" class="form-output" style="margin-top:var(--space-4)">
-          <p class="form-hint">点击按钮，自动分析左侧编辑器中的论文章节字数</p>
-        </div>
+    <div class="pv-arrow">→</div>
+    <div class="pv-step">
+      <div class="pv-icon">✍️</div>
+      <div class="pv-body">
+        <strong>3. 在线编辑</strong>
+        <span>Markdown 编辑器 + 实时预览，随时调整内容</span>
       </div>
     </div>
-
-    <!-- Tab: References ──────────────────── -->
-    <div class="tab-panel" id="panel-references">
-      <div class="panel-toolbar">
-        <span class="panel-label">参考文献检查</span>
-        <span class="panel-desc">对应 check_references.py — 自动读取编辑器中「参考文献」章节</span>
-      </div>
-      <div class="form-area">
-        <button class="btn-generate" id="refCheckBtn">✓ 检查参考文献</button>
-        <div id="refOutput" class="form-output" style="margin-top:var(--space-4)">
-          <p class="form-hint">点击按钮，自动解析编辑器中 ## 参考文献 下的条目</p>
-        </div>
-      </div>
-    </div>
-
-    <!-- Tab: Checklist ───────────────────── -->
-    <div class="tab-panel" id="panel-checklist">
-      <div class="panel-toolbar">
-        <span class="panel-label">待办清单生成</span>
-        <span class="panel-desc">对应 generate_task_checklist.py</span>
-      </div>
-      <div class="form-area">
-        <button class="btn-generate" id="clGenBtn">📋 生成待办清单 DOCX</button>
-        <div id="clOutput" class="form-output" style="margin-top:var(--space-4)">
-          <p class="form-hint">扫描编辑器中的截图占位符，生成待办清单 DOCX 下载</p>
-        </div>
+    <div class="pv-arrow">→</div>
+    <div class="pv-step highlight">
+      <div class="pv-icon">📄</div>
+      <div class="pv-body">
+        <strong>4. 导出 DOCX</strong>
+        <span>宋体正文 · 1.5 倍行距 · 首行缩进 — 开箱即用</span>
       </div>
     </div>
   </div>
+</section>
 
-  <!-- ── Resize Handle ── -->
-  <div class="resize-handle" id="resizeHandle" title="拖拽调整宽度"></div>
+<!-- ═══ Features ═══ -->
+<section class="l-section" id="features">
+  <h2 class="l-heading">六合一工作台</h2>
+  <p class="l-sub">每个功能对应一个 Python 脚本，现在全在浏览器里</p>
 
-  <!-- ── Right: Preview / Output ── -->
-  <div class="app-right" id="rightPanel">
-    <div class="panel-toolbar">
-      <span class="panel-label">👁 实时预览 / 输出</span>
+  <div class="feat-grid">
+    <div class="feat-card">
+      <span class="feat-num">01</span>
+      <h3>✍️ Markdown 编辑器</h3>
+      <p>左右分栏，实时预览。支持完整 GFM 语法：表格、代码块、LaTeX 公式、Mermaid 图表。</p>
+      <code class="feat-file">generate_docx.py</code>
     </div>
-    <div id="preview" class="preview">
-      <div class="preview-empty" id="previewEmpty">
-        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" opacity="0.3"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-        <p>在左边写 Markdown<br>这里实时渲染预览</p>
-      </div>
+    <div class="feat-card">
+      <span class="feat-num">02</span>
+      <h3>🤖 AI 论文生成</h3>
+      <p>填入项目证据 + DeepSeek API Key，AI 自动撰写引言、方法、实验、总结各章节初稿。</p>
+      <code class="feat-file">NEW · Web only</code>
+    </div>
+    <div class="feat-card">
+      <span class="feat-num">03</span>
+      <h3>🔍 证据提取</h3>
+      <p>填写项目技术栈、API 接口、数据库 Schema，生成结构化证据报告。可粘贴到论文「实验环境」章。</p>
+      <code class="feat-file">build_evidence.py</code>
+    </div>
+    <div class="feat-card">
+      <span class="feat-num">04</span>
+      <h3>🖼 图片管理</h3>
+      <p>拖拽上传实验图表，网格预览，一键生成 image-map.json 映射文件。</p>
+      <code class="feat-file">build_image_map.py</code>
+    </div>
+    <div class="feat-card">
+      <span class="feat-num">05</span>
+      <h3>📊 字数统计</h3>
+      <p>自动按章统计字数 + 进度条可视化。不足提醒补写，超标提示精简。</p>
+      <code class="feat-file">count_words.py</code>
+    </div>
+    <div class="feat-card">
+      <span class="feat-num">06</span>
+      <h3>✓ 参考文献检查</h3>
+      <p>自动检测重复编号、年份缺失、语言平衡、DOI 引用。输出格式化检查报告 + 待办清单。</p>
+      <code class="feat-file">check_references.py</code>
     </div>
   </div>
-</main>
+</section>
+
+<!-- ═══ How It Works ═══ -->
+<section class="l-section l-alt" id="how">
+  <h2 class="l-heading">和 Claude Code Skill 的关系</h2>
+  <div class="how-grid">
+    <div class="how-card">
+      <div class="how-badge">本地版</div>
+      <h3>Claude Code Skill</h3>
+      <p><code>/ai-course-project</code></p>
+      <ul>
+        <li>需要安装 Python + Claude Code</li>
+        <li>命令行交互</li>
+        <li>完整 7 脚本管道</li>
+        <li>本地文件系统访问</li>
+        <li>AI 通过 Claude 生成</li>
+      </ul>
+    </div>
+    <div class="how-card how-active">
+      <div class="how-badge">你现在在这里</div>
+      <h3>Web 工作台</h3>
+      <p><code>ai-course-project-skill.vercel.app</code></p>
+      <ul>
+        <li>零安装，浏览器打开即用</li>
+        <li>可视化界面 + 拖拽交互</li>
+        <li>6 个核心功能在线化</li>
+        <li>支持拖入 .md 文件</li>
+        <li>DeepSeek API 驱动 AI 生成</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ CTA ═══ -->
+<section class="l-section cta-section">
+  <h2>不需要装任何东西</h2>
+  <p>浏览器打开 → 拖入项目文件 → AI 生成 → 下载 DOCX。三分钟出初稿。</p>
+  <a href="app.html" class="btn-hero">🚀 进入工作台</a>
+</section>
 
 <!-- ═══ Footer ═══ -->
-<footer class="footer">
+<footer class="l-footer">
   <div class="footer-inner">
-    <p>© 2025 Lambert Liu · MIT · <a href="https://github.com/ZyhSechub/chinese-thesis-workbench-skill" target="_blank" rel="noopener" style="color:var(--color-accent)">上游项目</a></p>
+    <div class="footer-grid">
+      <div>
+        <strong>AI Course Project Workbench</strong>
+        <p>AI 驱动的课程论文工作台。Claude Code Skill 的 Web 版。</p>
+      </div>
+      <div>
+        <h4>链接</h4>
+        <a href="https://gitee.com/lambert24559/ai-course-project-skill" target="_blank" rel="noopener">Gitee 仓库</a>
+        <a href="https://github.com/CS231-Alambert" target="_blank" rel="noopener">GitHub</a>
+      </div>
+      <div>
+        <h4>参考</h4>
+        <a href="https://github.com/ZyhSechub/chinese-thesis-workbench-skill" target="_blank" rel="noopener">上游项目</a>
+        <a href="https://api-docs.deepseek.com/" target="_blank" rel="noopener">DeepSeek API</a>
+      </div>
+    </div>
+    <p class="copy">© 2025 Lambert Liu (CS231-Alambert) · MIT License</p>
   </div>
 </footer>
 
 <script src="script.js"></script>
-<script type="module" src="app.js"></script>
 </body>
 </html>

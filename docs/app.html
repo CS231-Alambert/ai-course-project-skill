@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>工作台 — AI Course Project Workbench</title>
+<link rel="stylesheet" href="style.css">
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<script type="importmap">
+{ "imports": { "docx": "https://esm.sh/docx@8.5.0" } }
+</script>
+</head>
+<body>
+
+<!-- Drop Zone -->
+<div class="drop-overlay" id="dropOverlay">
+  <div class="drop-modal">
+    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+    <p class="drop-title">松开以加载 Markdown 文件</p>
+    <p class="drop-hint">支持 .md / .txt / .markdown</p>
+  </div>
+</div>
+
+<!-- Nav -->
+<header class="nav-bar">
+  <div class="nav-inner">
+    <a href="index.html" class="nav-logo">
+      <svg width="24" height="24" viewBox="0 0 28 28" fill="none"><rect x="2" y="4" width="24" height="20" rx="3" stroke="currentColor" stroke-width="2"/><path d="M8 10h12M8 14h8M8 18h5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+      <span>AI Thesis Workbench</span>
+    </a>
+    <div class="nav-right">
+      <a href="index.html" class="nav-link">← 首页</a>
+      <a href="https://gitee.com/lambert24559/ai-course-project-skill" class="nav-link" target="_blank">Gitee</a>
+      <button class="theme-toggle" id="themeToggle" title="切换深色/浅色">🌓</button>
+    </div>
+  </div>
+</header>
+
+<main class="app">
+  <div class="app-left" id="leftPanel">
+    <!-- Tab bar -->
+    <nav class="tab-bar">
+      <button class="tab active" data-tab="editor">✍️ 编辑器</button>
+      <button class="tab" data-tab="ai">🤖 AI 生成</button>
+      <button class="tab" data-tab="evidence">🔍 证据</button>
+      <button class="tab" data-tab="images">🖼 图片</button>
+      <button class="tab" data-tab="wordcount">📊 字数</button>
+      <button class="tab" data-tab="references">✓ 参考文献</button>
+      <button class="tab" data-tab="checklist">📋 清单</button>
+    </nav>
+
+    <!-- Tab: Editor -->
+    <div class="tab-panel active" id="panel-editor">
+      <div class="panel-toolbar">
+        <span class="panel-label">Markdown 编辑器</span>
+        <div class="panel-actions">
+          <select id="templateSelect" class="tool-select">
+            <option value="">📋 加载模板…</option>
+            <option value="full">📝 完整论文 (5章)</option>
+            <option value="simple">🔬 实验报告 (简易)</option>
+          </select>
+          <label class="btn-tool file-label">📂 打开 <input type="file" id="fileInput" accept=".md,.txt,.markdown" hidden></label>
+          <button class="btn-tool" id="copyBtn">📋 复制</button>
+          <button class="btn-tool" id="clearBtn">🗑 清空</button>
+          <button class="btn-generate" id="generateBtn">📥 生成 DOCX</button>
+        </div>
+      </div>
+      <textarea id="editor" class="editor" placeholder="### 👋 开始写论文
+
+1. 直接在这里写 Markdown
+2. 切到「🤖 AI 生成」标签 → 填入项目信息 → AI 自动生成初稿
+3. 拖一个 .md 文件到页面任意位置
+4. 从顶部「📋 加载模板」选预设结构
+
+支持：标题 / 表格 / 代码块 / LaTeX公式 / 图片 / 参考文献" spellcheck="false"></textarea>
+      <div class="status-bar">
+        <span class="word-count" id="wordCount">0 字</span>
+        <span class="kb-hint"><kbd>Ctrl</kbd>+<kbd>↵</kbd> 生成 DOCX</span>
+        <span id="status" class="status"></span>
+      </div>
+    </div>
+
+    <!-- Tab: AI Generation -->
+    <div class="tab-panel" id="panel-ai">
+      <div class="panel-toolbar">
+        <span class="panel-label">🤖 AI 论文生成</span>
+        <span class="panel-desc">DeepSeek-v4 API</span>
+      </div>
+      <div class="form-area">
+        <div class="form-group">
+          <label>🔑 DeepSeek API Key</label>
+          <div style="display:flex;gap:var(--s2)">
+            <input type="password" id="aiApiKey" placeholder="sk-..." style="flex:1">
+            <button class="btn-tool" id="aiSaveKey" style="white-space:nowrap">💾 保存</button>
+          </div>
+          <p class="form-hint" style="margin-top:4px">密钥仅保存在浏览器本地，不会上传到任何服务器。从 <a href="https://platform.deepseek.com/api_keys" target="_blank" style="color:var(--accent)">platform.deepseek.com</a> 获取。</p>
+        </div>
+        <div class="form-group">
+          <label>📝 项目描述</label>
+          <textarea id="aiProjectDesc" rows="3" placeholder="简要描述你的项目：做什么、用了什么技术、有什么特点。例如：
+本项目实现了一个基于 ResNet-50 的图像分类系统，使用 PyTorch 框架，在 CIFAR-10 数据集上训练，采用数据增强和迁移学习策略，最终达到 94.2% 的测试准确率。"></textarea>
+        </div>
+        <div class="form-group">
+          <label>🔧 技术栈 & 实验配置</label>
+          <textarea id="aiTechDetail" rows="3" placeholder="Python 3.10, PyTorch 2.0, ResNet-50
+训练集 50000 张，测试集 10000 张
+优化器：Adam, lr=0.001, batch_size=64
+GPU: NVIDIA RTX 3060
+训练 100 epochs，约 3 小时"></textarea>
+        </div>
+        <div class="form-group">
+          <label>📊 实验结果（可选）</label>
+          <textarea id="aiResults" rows="2" placeholder="准确率 94.2%, F1 0.938, 推理时间 12ms/张
+消融实验：无数据增强 89.1%, 无迁移学习 91.5%"></textarea>
+        </div>
+        <div class="form-row">
+          <label style="display:flex;align-items:center;gap:var(--s2)">
+            <input type="checkbox" id="aiAppend" checked> 追加到编辑器末尾（不勾选则覆盖）
+          </label>
+        </div>
+        <button class="btn-generate" id="aiGenBtn">🤖 AI 生成论文初稿</button>
+        <div id="aiOutput" class="form-output" style="margin-top:var(--s4)">
+          <p class="form-hint">点击按钮后，AI 将根据你填写的项目信息，自动生成完整的论文初稿（摘要 + 引言 + 方法 + 实验 + 总结）</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tab: Evidence -->
+    <div class="tab-panel" id="panel-evidence">
+      <div class="panel-toolbar"><span class="panel-label">🔍 项目证据提取</span><span class="panel-desc">build_evidence.py</span></div>
+      <div class="form-area">
+        <div class="form-group"><label>项目名称</label><input type="text" id="evProjectName" placeholder="例如：图像分类实验项目"></div>
+        <div class="form-group"><label>技术栈</label><textarea id="evTechStack" rows="2" placeholder="Python 3.10, PyTorch 2.0, Transformers, Flask"></textarea></div>
+        <div class="form-group"><label>API 接口 / 入口文件</label><textarea id="evApi" rows="2" placeholder="app.py, src/train.py, predict.py"></textarea></div>
+        <div class="form-group"><label>数据库 / Schema</label><textarea id="evSchema" rows="2" placeholder="data/dataset.csv, models/user.py"></textarea></div>
+        <div class="form-group"><label>测试文件</label><textarea id="evTests" rows="2" placeholder="tests/test_model.py"></textarea></div>
+        <button class="btn-generate" id="evBuildBtn">🔍 生成证据报告</button>
+        <div id="evOutput" class="form-output"></div>
+      </div>
+    </div>
+
+    <!-- Tab: Images -->
+    <div class="tab-panel" id="panel-images">
+      <div class="panel-toolbar"><span class="panel-label">🖼 图片管理</span><span class="panel-desc">build_image_map.py</span></div>
+      <div class="form-area">
+        <div class="drop-zone" id="imgDropZone"><p>🖼 拖拽图片文件到此处上传</p><p class="form-hint">支持 PNG / JPG / GIF / SVG / WebP</p><label class="btn-tool file-label" style="display:inline-flex;margin-top:0.5rem">选择文件 <input type="file" id="imgFileInput" accept="image/*" multiple hidden></label></div>
+        <div id="imgGrid" class="img-grid"></div>
+        <div class="form-row"><button class="btn-generate" id="imgMapBtn">📋 生成 image-map.json</button><button class="btn-tool" id="imgClearBtn">清空全部</button></div>
+        <pre id="imgMapOutput" class="json-output" style="display:none"></pre>
+      </div>
+    </div>
+
+    <!-- Tab: Word Count -->
+    <div class="tab-panel" id="panel-wordcount">
+      <div class="panel-toolbar"><span class="panel-label">📊 字数统计</span><span class="panel-desc">count_words.py — 自动读取编辑器</span></div>
+      <div class="form-area">
+        <button class="btn-generate" id="wcAnalyzeBtn">📊 按章分析字数</button>
+        <div id="wcOutput" class="form-output" style="margin-top:var(--s4)"><p class="form-hint">自动解析编辑器中 ## 标题 → 统计各章字数 + 进度条</p></div>
+      </div>
+    </div>
+
+    <!-- Tab: References -->
+    <div class="tab-panel" id="panel-references">
+      <div class="panel-toolbar"><span class="panel-label">✓ 参考文献检查</span><span class="panel-desc">check_references.py — 自动读取编辑器</span></div>
+      <div class="form-area">
+        <button class="btn-generate" id="refCheckBtn">✓ 检查参考文献</button>
+        <div id="refOutput" class="form-output" style="margin-top:var(--s4)"><p class="form-hint">自动解析 ## 参考文献 → 检查重复/年份/语言/DOI</p></div>
+      </div>
+    </div>
+
+    <!-- Tab: Checklist -->
+    <div class="tab-panel" id="panel-checklist">
+      <div class="panel-toolbar"><span class="panel-label">📋 待办清单</span><span class="panel-desc">generate_task_checklist.py</span></div>
+      <div class="form-area">
+        <button class="btn-generate" id="clGenBtn">📋 生成待办清单 DOCX</button>
+        <div id="clOutput" class="form-output" style="margin-top:var(--s4)"><p class="form-hint">扫描截图占位符 → 生成待办清单并自动下载</p></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="resize-handle" id="resizeHandle" title="拖拽调整宽度"></div>
+
+  <!-- Right: Preview -->
+  <div class="app-right" id="rightPanel">
+    <div class="panel-toolbar"><span class="panel-label">👁 实时预览</span></div>
+    <div id="preview" class="preview">
+      <div class="preview-empty" id="previewEmpty">
+        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" opacity="0.3"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+        <p>左边写 Markdown<br>这里实时预览</p>
+      </div>
+    </div>
+  </div>
+</main>
+
+<footer class="footer"><div class="footer-inner"><p>© 2025 Lambert Liu · MIT · <a href="https://github.com/ZyhSechub/chinese-thesis-workbench-skill" target="_blank" rel="noopener" style="color:var(--accent)">上游项目</a></p></div></footer>
+
+<script src="script.js"></script>
+<script type="module" src="app.js"></script>
+</body>
+</html>
